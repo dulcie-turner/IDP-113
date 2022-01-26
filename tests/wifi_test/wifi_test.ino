@@ -1,28 +1,17 @@
 /*
-WIFI AND STARTING / STOPPING MOTOR
+WIFI
 
 How to use?
   Plug in the arduino and make sure everything's powered on
   Go onto your laptop and set up a mobile hotspot using the SSID and password written in arduino_secrets.h
   Upload the program
   Open the serial terminal and wait for the wifi to connect - eventually a link will be printed
-  Using the same laptop, navigate to that link and follow the instructions to control it
+  Using the same laptop, navigate to that link
 */
 
  
 #include <SPI.h>
 #include <WiFiNINA.h>
-#include <Wire.h>
-#include <Adafruit_MotorShield.h>
-
-// Create the motor shield object with the default I2C address
-Adafruit_MotorShield AFMS = Adafruit_MotorShield();
-// Or, create it with a different I2C address (say for stacking)
-// Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
-
-// Select which 'port' M1, M2, M3 or M4. In this case, M1
-Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
-Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 
 // sort out wifi security
 #include "arduino_secrets.h" 
@@ -54,8 +43,7 @@ void handle_client(WiFiClient client) {
           client.println();
 
           // the content of the HTTP response follows the header:
-          client.print("Click <a href=\"/F\">here</a> to set the motors to FORWARD<br>");
-          client.print("Click <a href=\"/S\">here</a> to set the motors to STOP<br>");
+          client.print("WiFi working!<br>");
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -67,14 +55,6 @@ void handle_client(WiFiClient client) {
       } else if (c != '\r') {  // if you got anything else but a carriage return character,
         currentLine += c;      // add it to the end of the currentLine
       }
-
-      // Check client request for command
-      if (currentLine.endsWith("GET /F")) {
-        motors_forward();
-      }
-      if (currentLine.endsWith("GET /S")) {
-        motors_stop();
-      }
     }
   }
 
@@ -85,18 +65,6 @@ void handle_client(WiFiClient client) {
 
 void setup() {
   Serial.begin(9600);           // set up Serial library at 9600 bps
-
-  AFMS.begin();  // create with the default frequency 1.6KHz
-  //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
- 
-  /*// Set the speed to start, from 0 (off) to 255 (max speed)
-  Motor1->setSpeed(150);
-  Motor2->setSpeed(200);
-  Motor1->run(FORWARD);
-  // turn on motor
-  Motor1->run(RELEASE);
-  Motor2->run(FORWARD);
-  Motor2->run(RELEASE);*/
 
   // ----- CONNECTING TO WIFI ------
 
@@ -141,25 +109,6 @@ void loop() {
   // -------------------------------------
 }
 
-
-void motors_forward() {
-  // set motors to move forward continuously
-  Motor1->setSpeed(100);
-  Motor2->setSpeed(100);
-  Motor1->run(FORWARD);
-  Motor2->run(FORWARD);
-  /*delay(5000);
-  Motor1->run(RELEASE);
-  Motor2->run(RELEASE);*/
-}
-
-
-void motors_stop() {
-  // stop motors
-  Motor1->run(RELEASE);
-  Motor2->run(RELEASE);
-}
- 
 
 void printWifiStatus() {
   // print the SSID of the network you're attached to:
