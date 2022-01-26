@@ -1,5 +1,5 @@
 /*
-WIFI AND STARTING / STOPPING MOTOR
+WIFI AND CONTROLLING MOTOR
 
 How to use?
   Plug in the arduino and make sure everything's powered on
@@ -61,6 +61,8 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/FL\">here</a> to set the motors to FAST LEFT<br>");
           client.print("Click <a href=\"/SR\">here</a> to set the motors to SLOW RIGHT<br>");
           client.print("Click <a href=\"/FR\">here</a> to set the motors to FAST RIGHT<br>");
+          client.print("Enter a speed (between 0 and 255) here <form method=\"get\"><input type=\"number\">  <input type=\"submit\" value=\"Submit\"></form><br>");
+          // TO DO
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -149,6 +151,13 @@ void setup() {
   // ----------------------------------
 }
 
+// motor speed control
+int left_speed = 100;
+int right_speed = 100;
+
+int previous_left_speed = 0;
+int previous_right_speed = 0;
+
 void loop() {
 
     // ------------ WIFI CODE -----------
@@ -159,15 +168,22 @@ void loop() {
     handle_client(client);
   }
   // -------------------------------------
+
+  if (left_speed != previous_left_speed || right_speed != previous_right_speed) {
+    motors_change_speed();
+
+    previous_left_speed = left_speed;
+    previous_right_speed = right_speed;
+  }
 }
 
-int leftSpeed = 100;
-int rightSpeed = 100;
+void motors_change_speed() {
+  Motor1->setSpeed(left_speed);
+  Motor2->setSpeed(right_speed);  
+}
 
 void motors_forward() {
   // set motors to move forward continuously
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(FORWARD);
   Motor2->run(FORWARD);
 }
@@ -181,40 +197,30 @@ void motors_stop() {
 
 void motors_backward() {
   // set motors to move backward continuously
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(BACKWARD);
   Motor2->run(BACKWARD);
 }
 
 void motors_left_fast() {
   // set motors to turn left quickly
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(FORWARD);
   Motor2->run(BACKWARD);
 }
 
 void motors_left_slow() {
   // set motors to turn left slowly
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(FORWARD);
   Motor2->run(RELEASE);
 }
 
 void motors_right_fast() {
   // set motors to turn right quickly
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(BACKWARD);
   Motor2->run(FORWARD);
 }
 
 void motors_right_slow() {
   // set motors to turn right slowly
-  Motor1->setSpeed(leftSpeed);
-  Motor2->setSpeed(rightSpeed);
   Motor1->run(RELEASE);
   Motor2->run(FORWARD);
 } 
