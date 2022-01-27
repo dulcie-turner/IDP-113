@@ -33,8 +33,17 @@ int keyIndex = 0;                 // your network key Index number (needed only 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
 
+// motor speed control
+int left_speed = 255;
+int right_speed = 255;
+
+int previous_left_speed = 0;
+int previous_right_speed = 0;
+
+
 // handle somebody connecting to wifi server
 void handle_client(WiFiClient client) {
+
 
   Serial.println("new client");           // print a message out the serial port
   String currentLine = "";                // make a String to hold incoming data from the client
@@ -54,15 +63,17 @@ void handle_client(WiFiClient client) {
           client.println();
 
           // the content of the HTTP response follows the header:
+          client.print("<style>* {font-size: 30pt} </style>");
           client.print("Click <a href=\"/F\">here</a> to set the motors to FORWARD<br>");
           client.print("Click <a href=\"/B\">here</a> to set the motors to BACKWARD<br>");
           client.print("Click <a href=\"/S\">here</a> to set the motors to STOP<br><br>");
           client.print("Click <a href=\"/SL\">here</a> to set the motors to SLOW LEFT<br>");
           client.print("Click <a href=\"/FL\">here</a> to set the motors to FAST LEFT<br>");
           client.print("Click <a href=\"/SR\">here</a> to set the motors to SLOW RIGHT<br>");
-          client.print("Click <a href=\"/FR\">here</a> to set the motors to FAST RIGHT<br>");
-          client.print("Enter a speed (between 0 and 255) here <form method=\"get\"><input type=\"number\">  <input type=\"submit\" value=\"Submit\"></form><br>");
-          // TO DO
+          client.print("Click <a href=\"/FR\">here</a> to set the motors to FAST RIGHT<br><br>");
+          client.print("Click <a href=\"/fast\">here</a> to set the speed to FAST<br>");
+          client.print("Click <a href=\"/medium\">here</a> to set the speed to MEDIUM<br>");
+          client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br>");
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -97,6 +108,18 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /FR")) {
         motors_right_fast();
       }
+      if (currentLine.endsWith("GET /fast")) {
+        left_speed = 250;
+        right_speed = 250;
+      }
+      if (currentLine.endsWith("GET /medium")) {
+        left_speed = 160;
+        right_speed = 160;
+      }
+      if (currentLine.endsWith("GET /slow")) {
+        left_speed = 60;
+        right_speed = 60;
+      }
     }
   }
 
@@ -110,15 +133,6 @@ void setup() {
 
   AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
- 
-  /*// Set the speed to start, from 0 (off) to 255 (max speed)
-  Motor1->setSpeed(150);
-  Motor2->setSpeed(200);
-  Motor1->run(FORWARD);
-  // turn on motor
-  Motor1->run(RELEASE);
-  Motor2->run(FORWARD);
-  Motor2->run(RELEASE);*/
 
   // ----- CONNECTING TO WIFI ------
 
@@ -150,13 +164,6 @@ void setup() {
 
   // ----------------------------------
 }
-
-// motor speed control
-int left_speed = 100;
-int right_speed = 100;
-
-int previous_left_speed = 0;
-int previous_right_speed = 0;
 
 void loop() {
 
