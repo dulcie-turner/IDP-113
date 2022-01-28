@@ -6,6 +6,9 @@ How to use?
   Upload the program
   Open the serial terminal and wait for the wifi to connect - eventually a link will be printed
   Using the same laptop, navigate to that link and follow the instructions to control it
+
+If the wifi won't connect?
+  Try restarting the computer with the hotspot
 */
 
  
@@ -70,7 +73,7 @@ void handle_client(WiFiClient client) {
           client.println();
 
           // the content of the HTTP response follows the header:
-          client.print("<style>* {font-size: 30pt} </style>");
+          client.print("<style>* {font-size: 26pt} </style>");
           client.print("Click <a href=\"/F\">here</a> to set the motors to FORWARD<br>");
           client.print("Click <a href=\"/B\">here</a> to set the motors to BACKWARD<br>");
           client.print("Click <a href=\"/S\">here</a> to set the motors to STOP<br><br>");
