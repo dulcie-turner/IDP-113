@@ -14,7 +14,8 @@ void loop() {
   for (int i = 0; i < n_line_sensors; i++) {
     line_reading[i] = digitalRead(line_pins[i]);
     Serial.println("Line sensor - " + String(i + 1) + " - Reading - " + String(line_reading[i]));
-    delay(1500);
+    delay(500);
   }
+  Serial.println("-------");
 
   }
