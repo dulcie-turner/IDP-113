@@ -1,3 +1,8 @@
+/* LINE SENSOR TEST
+ *  
+ *  Prints all 4 line sensor readings to the Serial terminal repeatedly
+ */
+
 int line_pins[] = {1, 2, 3, 4};
 int n_line_sensors = 4;
 bool line_reading[4];
