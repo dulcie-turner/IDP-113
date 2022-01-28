@@ -48,6 +48,55 @@ int previous_left_speed = 0;
 int previous_right_speed = 0;
 
 
+void motors_change_speed() {
+  Motor1->setSpeed(left_speed);
+  Motor2->setSpeed(right_speed);  
+}
+
+void motors_forward() {
+  // set motors to move forward continuously
+  Motor1->run(FORWARD);
+  Motor2->run(FORWARD);
+}
+
+
+void motors_stop() {
+  // stop motors
+  Motor1->run(RELEASE);
+  Motor2->run(RELEASE);
+}
+
+void motors_backward() {
+  // set motors to move backward continuously
+  Motor1->run(BACKWARD);
+  Motor2->run(BACKWARD);
+}
+
+void motors_left_fast() {
+  // set motors to turn left quickly
+  Motor1->run(FORWARD);
+  Motor2->run(BACKWARD);
+}
+
+void motors_left_slow() {
+  // set motors to turn left slowly
+  Motor1->run(FORWARD);
+  Motor2->run(RELEASE);
+}
+
+void motors_right_fast() {
+  // set motors to turn right quickly
+  Motor1->run(BACKWARD);
+  Motor2->run(FORWARD);
+}
+
+void motors_right_slow() {
+  // set motors to turn right slowly
+  Motor1->run(RELEASE);
+  Motor2->run(FORWARD);
+} 
+
+
 // handle somebody connecting to wifi server
 void handle_client(WiFiClient client) {
 
@@ -144,6 +193,26 @@ void handle_client(WiFiClient client) {
   Serial.println("client disonnected");
 }
 
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your board's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+  // print where to go in a browser:
+  Serial.print("To see this page in action, open a browser to http://");
+  Serial.println(ip);
+}
+
 void setup() {
   Serial.begin(9600);           // set up Serial library at 9600 bps
 
@@ -201,15 +270,41 @@ void get_line_sensor_readings(bool printResults) {
 }
 
 void decide_line_follow_speed() {
-
-  
+  left_speed = 150;
+  right_speed = 150;
 }
+
+void line_following(){
+  decide_line_follow_speed();
+  get_line_sensor_readings(false);
+  bool old_reading = line_reading;
+  bool new_reading = line_reading;
+  float line_follow_ratio = 0;
+    while (mode == "auto") {
+      get_line_sensor_readings(false);
+      new_reading = line_reading;
+      if (new_reading != old_reading and new_reading != bool([0,0,0,0]) and new_reading != bool([0,1,0,1]) and new_reading != bool([1,0,1,0]) and new_reading != bool([1,1,0,1]) and new_reading != bool([1,0,1,1])) {
+        old_reading = new_reading;
+        line_follow_ratio = 0;
+        for (int i = 0; i < n_line_sensors; i++)  {
+          line_follow_ratio += new_reading[i]*i;
+        }
+        line_follow_ratio = line_follow_ratio/3 -1.5;
+        
+        Motor1->setSpeed(left_speed + line_follow_ratio * 20);
+        Motor2->setSpeed(right_speed + line_follow_ratio * 20);
+        Motor1->run(FORWARD);
+        Motor2->run(FORWARD);
+      }
+      }
+      }
+  
+
 
 void loop() {
 
   if (mode == "auto") {
-    get_line_sensor_readings(true);
-    decide_line_follow_speed();
+    line_following();
   }
 
     // ------------ WIFI CODE -----------
@@ -227,72 +322,4 @@ void loop() {
     previous_left_speed = left_speed;
     previous_right_speed = right_speed;
   }
-}
-
-void motors_change_speed() {
-  Motor1->setSpeed(left_speed);
-  Motor2->setSpeed(right_speed);  
-}
-
-void motors_forward() {
-  // set motors to move forward continuously
-  Motor1->run(FORWARD);
-  Motor2->run(FORWARD);
-}
-
-
-void motors_stop() {
-  // stop motors
-  Motor1->run(RELEASE);
-  Motor2->run(RELEASE);
-}
-
-void motors_backward() {
-  // set motors to move backward continuously
-  Motor1->run(BACKWARD);
-  Motor2->run(BACKWARD);
-}
-
-void motors_left_fast() {
-  // set motors to turn left quickly
-  Motor1->run(FORWARD);
-  Motor2->run(BACKWARD);
-}
-
-void motors_left_slow() {
-  // set motors to turn left slowly
-  Motor1->run(FORWARD);
-  Motor2->run(RELEASE);
-}
-
-void motors_right_fast() {
-  // set motors to turn right quickly
-  Motor1->run(BACKWARD);
-  Motor2->run(FORWARD);
-}
-
-void motors_right_slow() {
-  // set motors to turn right slowly
-  Motor1->run(RELEASE);
-  Motor2->run(FORWARD);
-} 
-
-void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your board's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-  // print where to go in a browser:
-  Serial.print("To see this page in action, open a browser to http://");
-  Serial.println(ip);
 }
