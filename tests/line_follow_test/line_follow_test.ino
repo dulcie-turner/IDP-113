@@ -39,6 +39,7 @@ bool invalid_reading5[] = {1,0,1,1};
 bool old_reading[4] = {0,0,0,0};
 bool new_reading[4] = {0,0,0,0};
 float line_follow_ratio = 0;
+int n_sensors_high = 0;
 
 String mode = "manual";
 
@@ -282,6 +283,7 @@ void get_line_sensor_readings(bool printResults) {
 }
 
 void decide_line_follow_speed() {
+  n_sensors_high = 0;
         if (line_reading != invalid_reading1) {
           if (line_reading != invalid_reading2) {
             if (line_reading != invalid_reading3) {
@@ -290,10 +292,12 @@ void decide_line_follow_speed() {
                   float line_follow_ratio = 0;
                   for (int i = 0; i < n_line_sensors; i++)  {
                     line_follow_ratio += line_reading[i]*i;
+                    n_sensors_high += line_reading[i];
                   }
-                  line_follow_ratio = line_follow_ratio/3 -1.5;
-                  left_speed = 150 + line_follow_ratio * 20;
-                  right_speed = 150 + line_follow_ratio * 20;
+                  line_follow_ratio = line_follow_ratio/n_sensors_high -1.5;
+                  left_speed = 150 + line_follow_ratio * 50;
+                  right_speed = 150 + line_follow_ratio * 50;
+                  Serial.println(String(line_follow_ratio));
                 }
               }
             }
