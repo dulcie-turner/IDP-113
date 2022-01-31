@@ -30,14 +30,14 @@ Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 // setup line sensors
 int line_pins[] = {1, 2, 3, 4};
 int n_line_sensors = 4;
-int line_reading[4] = {0,0,0,0};
+bool line_reading[4] = {0,0,0,0};
 bool invalid_reading1[] = {0,0,0,0};
 bool invalid_reading2[] = {1,0,1,0};
 bool invalid_reading3[] = {0,1,0,1};
 bool invalid_reading4[] = {1,1,0,1};
 bool invalid_reading5[] = {1,0,1,1};
-int old_reading[4] = {0,0,0,0};
-int new_reading[4] = {0,0,0,0};
+bool old_reading[4] = {0,0,0,0};
+bool new_reading[4] = {0,0,0,0};
 
 String mode = "manual";
 
@@ -269,15 +269,7 @@ void get_line_sensor_readings(bool printResults) {
   // take readings from line sensor and (optionally) print
   
   for (int i = 0; i < n_line_sensors; i++) {
-    if (digitalRead(line_pins[i]) == HIGH) {
-      line_reading[i] = 1;
-    }
-    else
-    {
-      line_reading[i] = 0;
-    }
-    
-
+    line_reading[i] = digitalRead(line_pins[i]);
     if (printResults) {
       Serial.println("Line sensor - " + String(i + 1) + " - Reading - " + String(line_reading[i]));
     }
@@ -315,7 +307,7 @@ void line_following(){
                   }
                   line_follow_ratio = 0;
                   for (int i = 0; i < n_line_sensors; i++)  {
-                    line_follow_ratio += new_reading[i];
+                    line_follow_ratio += new_reading[i]*i;
                   }
                   line_follow_ratio = line_follow_ratio/3 -1.5;
         
