@@ -38,6 +38,7 @@ bool invalid_reading4[] = {1,1,0,1};
 bool invalid_reading5[] = {1,0,1,1};
 bool old_reading[4] = {0,0,0,0};
 bool new_reading[4] = {0,0,0,0};
+float line_follow_ratio = 0;
 
 String mode = "manual";
 
@@ -194,6 +195,8 @@ void handle_client(WiFiClient client) {
       }
       if (currentLine.endsWith("GET /manual")) {
         mode = "manual";
+        motors_stop();
+        
       }
     }
   }
@@ -271,32 +274,48 @@ void get_line_sensor_readings(bool printResults) {
   for (int i = 0; i < n_line_sensors; i++) {
     line_reading[i] = digitalRead(line_pins[i]);
     if (printResults) {
-      Serial.println("Line sensor - " + String(i + 1) + " - Reading - " + String(line_reading[i]));
+      Serial.print(String(line_reading[i]));
     }
   }
-  if (printResults) { Serial.println("-------");}
+  if (printResults) { Serial.println("\n-------");}
   
 }
 
 void decide_line_follow_speed() {
-  left_speed = 150;
-  right_speed = 150;
+        if (line_reading != invalid_reading1) {
+          if (line_reading != invalid_reading2) {
+            if (line_reading != invalid_reading3) {
+              if (line_reading != invalid_reading4) {
+                if (line_reading != invalid_reading5) {
+                  float line_follow_ratio = 0;
+                  for (int i = 0; i < n_line_sensors; i++)  {
+                    line_follow_ratio += line_reading[i]*i;
+                  }
+                  line_follow_ratio = line_follow_ratio/3 -1.5;
+                  left_speed = 150 + line_follow_ratio * 20;
+                  right_speed = 150 + line_follow_ratio * 20;
+                }
+              }
+            }
+          }
+        }
 }
 
 void line_following(){
-  decide_line_follow_speed();
+  get_line_sensor_readings(true);
+   decide_line_follow_speed();
+  
+ /* decide_line_follow_speed();
   get_line_sensor_readings(false);
   for (int i = 0; i < n_line_sensors; i++) {
     old_reading[i] = line_reading[i];
     new_reading[i] = line_reading[i];
   }
-  float line_follow_ratio = 0;
-    while (mode == "auto") {
+    
       get_line_sensor_readings(false);
       for (int i = 0; i < n_line_sensors; i++) {
         new_reading[i] = line_reading[i];
       }
-      if (new_reading != old_reading) {
         if (new_reading != invalid_reading1) {
           if (new_reading != invalid_reading2) {
             if (new_reading != invalid_reading3) {
@@ -310,19 +329,15 @@ void line_following(){
                     line_follow_ratio += new_reading[i]*i;
                   }
                   line_follow_ratio = line_follow_ratio/3 -1.5;
-        
-                  Motor1->setSpeed(left_speed + line_follow_ratio * 20);
-                  Motor2->setSpeed(right_speed + line_follow_ratio * 20);
-                  Motor1->run(FORWARD);
-                  Motor2->run(FORWARD);
+                  left_speed = 150 + line_follow_ratio * 20;
+                  right_speed = 150 + line_follow_ratio * 20;
                 }
               }
             }
           }
-        }
-      }
+        }*/
    }
-}
+
   
 
 
