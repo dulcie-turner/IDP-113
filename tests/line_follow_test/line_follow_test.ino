@@ -30,7 +30,14 @@ Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 // setup line sensors
 int line_pins[] = {1, 2, 3, 4};
 int n_line_sensors = 4;
-bool line_reading[4];
+int line_reading[4] = {0,0,0,0};
+bool invalid_reading1[] = {0,0,0,0};
+bool invalid_reading2[] = {1,0,1,0};
+bool invalid_reading3[] = {0,1,0,1};
+bool invalid_reading4[] = {1,1,0,1};
+bool invalid_reading5[] = {1,0,1,1};
+int old_reading[4] = {0,0,0,0};
+int new_reading[4] = {0,0,0,0};
 
 String mode = "manual";
 
@@ -262,7 +269,14 @@ void get_line_sensor_readings(bool printResults) {
   // take readings from line sensor and (optionally) print
   
   for (int i = 0; i < n_line_sensors; i++) {
-    line_reading[i] = digitalRead(line_pins[i]);
+    if (digitalRead(line_pins[i]) == HIGH) {
+      line_reading[i] = 1;
+    }
+    else
+    {
+      line_reading[i] = 0;
+    }
+    
 
     if (printResults) {
       Serial.println("Line sensor - " + String(i + 1) + " - Reading - " + String(line_reading[i]));
@@ -280,27 +294,43 @@ void decide_line_follow_speed() {
 void line_following(){
   decide_line_follow_speed();
   get_line_sensor_readings(false);
-  bool old_reading = line_reading;
-  bool new_reading = line_reading;
+  for (int i = 0; i < n_line_sensors; i++) {
+    old_reading[i] = line_reading[i];
+    new_reading[i] = line_reading[i];
+  }
   float line_follow_ratio = 0;
     while (mode == "auto") {
       get_line_sensor_readings(false);
-      new_reading = line_reading;
-      if (new_reading != old_reading and new_reading != bool([0,0,0,0]) and new_reading != bool([0,1,0,1]) and new_reading != bool([1,0,1,0]) and new_reading != bool([1,1,0,1]) and new_reading != bool([1,0,1,1])) {
-        old_reading = new_reading;
-        line_follow_ratio = 0;
-        for (int i = 0; i < n_line_sensors; i++)  {
-          line_follow_ratio += new_reading[i]*i;
-        }
-        line_follow_ratio = line_follow_ratio/3 -1.5;
+      for (int i = 0; i < n_line_sensors; i++) {
+        new_reading[i] = line_reading[i];
+      }
+      if (new_reading != old_reading) {
+        if (new_reading != invalid_reading1) {
+          if (new_reading != invalid_reading2) {
+            if (new_reading != invalid_reading3) {
+              if (new_reading != invalid_reading4) {
+                if (new_reading != invalid_reading5) {
+                  for (int i = 0; i < n_line_sensors; i++) {
+                    old_reading[i] = new_reading[i];
+                  }
+                  line_follow_ratio = 0;
+                  for (int i = 0; i < n_line_sensors; i++)  {
+                    line_follow_ratio += new_reading[i];
+                  }
+                  line_follow_ratio = line_follow_ratio/3 -1.5;
         
-        Motor1->setSpeed(left_speed + line_follow_ratio * 20);
-        Motor2->setSpeed(right_speed + line_follow_ratio * 20);
-        Motor1->run(FORWARD);
-        Motor2->run(FORWARD);
+                  Motor1->setSpeed(left_speed + line_follow_ratio * 20);
+                  Motor2->setSpeed(right_speed + line_follow_ratio * 20);
+                  Motor1->run(FORWARD);
+                  Motor2->run(FORWARD);
+                }
+              }
+            }
+          }
+        }
       }
-      }
-      }
+   }
+}
   
 
 
