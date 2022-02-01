@@ -36,10 +36,14 @@ bool invalid_reading2[] = {1,0,1,0};
 bool invalid_reading3[] = {0,1,0,1};
 bool invalid_reading4[] = {1,1,0,1};
 bool invalid_reading5[] = {1,0,1,1};
+bool junction[] = {1,1,1,1};
 bool old_reading[4] = {0,0,0,0};
 bool new_reading[4] = {0,0,0,0};
 float line_follow_ratio = 0;
 int n_sensors_high = 0;
+int n_junction_readings = 0;
+int n_not_junction_readings = 0;
+int n_junctions = 0;
 
 String mode = "manual";
 
@@ -106,7 +110,23 @@ void motors_right_slow() {
   // set motors to turn right slowly
   Motor1->run(RELEASE);
   Motor2->run(FORWARD);
-} 
+}
+
+void motors_turn_90(String direction) {
+   Motor1->setSpeed(200);
+   Motor2->setSpeed(200); 
+  if (direction == "left") {
+    Motor1->run(FORWARD);
+    Motor2->run(BACKWARD);
+  } else {
+    Motor1->run(BACKWARD);
+    Motor2->run(FORWARD);
+  }
+
+  delay(2000);
+  motors_stop();
+  motors_change_speed();
+}
 
 
 // handle somebody connecting to wifi server
@@ -144,6 +164,9 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br><br><br>");
           client.print("Click <a href=\"/line\">here</a> to set the mode to LINE FOLLOW<br>");
           client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
+          client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
+          client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
+          
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -197,13 +220,19 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /manual")) {
         mode = "manual";
         motors_stop();
-        
+        n_junctions = 0;
+      }
+      if (currentLine.endsWith("GET /L90")) {
+        motors_turn_90("left");
+      }
+      if (currentLine.endsWith("GET /R90")) {
+        motors_turn_90("right");
       }
     }
   }
 
   // close the connection:
-  client.stop();
+  client.stop(); 
   Serial.println("client disonnected");
 }
 
@@ -300,10 +329,54 @@ void decide_line_follow_speed() {
                   else {
                     line_follow_ratio = (line_follow_ratio/n_sensors_high) -1.5;
                   }
-                  left_speed = 150 + line_follow_ratio * 50;
-                  right_speed = 150 + line_follow_ratio * 50;
+                  if (line_follow_ratio > 0) {
+                    left_speed = 250 - (line_follow_ratio * 50);
+                    right_speed = 250;
+                  }
+                  else {
+                    left_speed = 250;
+                    right_speed = 250 + (line_follow_ratio * 50);
+                  }
+
+                  bool is_junction = true;
+                  for (int i = 0; i < n_line_sensors; i++) {
+                    if (line_reading[i] != junction[i]){
+                       is_junction = false;
+                    }
+                  }
+                  if (is_junction) {
+                    n_junction_readings += 1;
+                  }
+                  else {
+                    n_junction_readings = 0;
+                  }
+                  if (n_junction_readings == 3){
+                    n_junctions += 1;                  }
+                  /*
+                  if (is_junction) {
+                    n_junction_readings += 1;
+                    n_not_junction_readings = 0;
+                  }
+                  else {
+                    n_not_junction_readings += 1;
+                    n_junction_readings = 0;
+                  }
+                  if (n_junction_readings == 3) {
+                    n_junctions += 1;
+                  } else if (n_not_junction_readings == 3) {
+                    n_junction_readings = 0;
+                    
+                  }
+                  */
+                  Serial.println(String(n_junctions));
+                  
+                  /*
+                  left_speed = 200 - (line_follow_ratio * 33);
+                  right_speed = 200 + (line_follow_ratio * 33);
+                  
                   Serial.println(String(line_follow_ratio));
                   Serial.println(String(left_speed) + String(right_speed));
+                  */
                 }
               }
             }
