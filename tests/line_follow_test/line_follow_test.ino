@@ -294,7 +294,12 @@ void decide_line_follow_speed() {
                     line_follow_ratio += line_reading[i]*i;
                     n_sensors_high += line_reading[i];
                   }
-                  line_follow_ratio = line_follow_ratio/n_sensors_high -1.5;
+                  if (n_sensors_high == 0) {
+                    line_follow_ratio = 0;
+                  }
+                  else {
+                    line_follow_ratio = (line_follow_ratio/n_sensors_high) -1.5;
+                  }
                   left_speed = 150 + line_follow_ratio * 50;
                   right_speed = 150 + line_follow_ratio * 50;
                   Serial.println(String(line_follow_ratio));
