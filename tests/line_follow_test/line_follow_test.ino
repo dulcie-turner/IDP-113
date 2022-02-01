@@ -298,6 +298,7 @@ void decide_line_follow_speed() {
                   left_speed = 150 + line_follow_ratio * 50;
                   right_speed = 150 + line_follow_ratio * 50;
                   Serial.println(String(line_follow_ratio));
+                  Serial.println(String(left_speed) + String(right_speed));
                 }
               }
             }
