@@ -9,11 +9,10 @@ How to use?
 
 If the wifi won't connect?
   Try restarting the computer with the hotspot
-*/
 
-/*
   HC-SR04 code from www.HowToMechatronics.com
 */
+
  
 #include <SPI.h>
 #include <WiFiNINA.h>
@@ -29,17 +28,31 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
 Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 
+
+// setup line sensors
+int line_pins[] = {1, 2, 3, 4};
+int n_line_sensors = 4;
+bool line_reading[4] = {0,0,0,0};
+bool invalid_reading1[] = {0,0,0,0};
+bool invalid_reading2[] = {1,0,1,0};
+bool invalid_reading3[] = {0,1,0,1};
+bool invalid_reading4[] = {1,1,0,1};
+bool invalid_reading5[] = {1,0,1,1};
+bool junction[] = {1,1,1,1};
+bool old_reading[4] = {0,0,0,0};
+bool new_reading[4] = {0,0,0,0};
+float line_follow_ratio = 0;
+int n_sensors_high = 0;
+int n_junction_readings = 0;
+int n_not_junction_readings = 0;
+int n_junctions = 0;
+
 // ultrasonic definitions
 const int trigPin = 6;
 const int echoPin = 10;
 long ultrasonic_duration;
 int ultrasonic_distance;
 int block_distance;
-
-// setup line sensors
-int line_pins[] = {1, 2, 3, 4};
-int n_line_sensors = 4;
-bool line_reading[4];
 
 String mode = "manual";
 
@@ -106,7 +119,23 @@ void motors_right_slow() {
   // set motors to turn right slowly
   Motor1->run(RELEASE);
   Motor2->run(FORWARD);
-} 
+}
+
+void motors_turn_90(String direction) {
+   Motor1->setSpeed(200);
+   Motor2->setSpeed(200); 
+  if (direction == "left") {
+    Motor1->run(FORWARD);
+    Motor2->run(BACKWARD);
+  } else {
+    Motor1->run(BACKWARD);
+    Motor2->run(FORWARD);
+  }
+
+  delay(2000);
+  motors_stop();
+  motors_change_speed();
+}
 
 
 // handle somebody connecting to wifi server
@@ -144,6 +173,9 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br><br><br>");
           client.print("Click <a href=\"/line\">here</a> to set the mode to LINE FOLLOW<br>");
           client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
+          client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
+          client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
+          
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -196,12 +228,20 @@ void handle_client(WiFiClient client) {
       }
       if (currentLine.endsWith("GET /manual")) {
         mode = "manual";
+        motors_stop();
+        n_junctions = 0;
+      }
+      if (currentLine.endsWith("GET /L90")) {
+        motors_turn_90("left");
+      }
+      if (currentLine.endsWith("GET /R90")) {
+        motors_turn_90("right");
       }
     }
   }
 
   // close the connection:
-  client.stop();
+  client.stop(); 
   Serial.println("client disonnected");
 }
 
@@ -231,10 +271,10 @@ void setup() {
   AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
 
-  // line sensor pins
   for (int i = 0; i < n_line_sensors; i++) {
     pinMode(line_pins[i], INPUT);
   }
+
   // ultrasonic pins
   pinMode(trigPin, OUTPUT); 
   pinMode(echoPin, INPUT); 
@@ -276,16 +316,15 @@ void get_line_sensor_readings(bool printResults) {
   
   for (int i = 0; i < n_line_sensors; i++) {
     line_reading[i] = digitalRead(line_pins[i]);
-
     if (printResults) {
-      Serial.println("Line sensor - " + String(i + 1) + " - Reading - " + String(line_reading[i]));
+      Serial.print(String(line_reading[i]));
     }
   }
-  if (printResults) { Serial.println("-------");}
+  if (printResults) { Serial.println("\n-------");}
   
 }
 
-void get_distance_sensor_readings() {
+int get_distance_sensor_readings() {
   // Clears the trigPin
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -300,35 +339,117 @@ void get_distance_sensor_readings() {
   return ultrasonic_distance;
 }
 
+
 void decide_line_follow_speed() {
-  left_speed = 150;
-  right_speed = 150;
+  n_sensors_high = 0;
+        if (line_reading != invalid_reading1) {
+          if (line_reading != invalid_reading2) {
+            if (line_reading != invalid_reading3) {
+              if (line_reading != invalid_reading4) {
+                if (line_reading != invalid_reading5) {
+                  float line_follow_ratio = 0;
+                  for (int i = 0; i < n_line_sensors; i++)  {
+                    line_follow_ratio += line_reading[i]*i;
+                    n_sensors_high += line_reading[i];
+                  }
+                  if (n_sensors_high == 0) {
+                    line_follow_ratio = 0;
+                  }
+                  else {
+                    line_follow_ratio = (line_follow_ratio/n_sensors_high) -1.5;
+                  }
+                  if (line_follow_ratio > 0) {
+                    left_speed = 250 - (line_follow_ratio * 50);
+                    right_speed = 250;
+                  }
+                  else {
+                    left_speed = 250;
+                    right_speed = 250 + (line_follow_ratio * 50);
+                  }
+
+                  bool is_junction = true;
+                  for (int i = 0; i < n_line_sensors; i++) {
+                    if (line_reading[i] != junction[i]){
+                       is_junction = false;
+                    }
+                  }
+                  if (is_junction) {
+                    n_junction_readings += 1;
+                  }
+                  else {
+                    n_junction_readings = 0;
+                  }
+                  if (n_junction_readings == 3){
+                    n_junctions += 1;                  }
+                  /*
+                  if (is_junction) {
+                    n_junction_readings += 1;
+                    n_not_junction_readings = 0;
+                  }
+                  else {
+                    n_not_junction_readings += 1;
+                    n_junction_readings = 0;
+                  }
+                  if (n_junction_readings == 3) {
+                    n_junctions += 1;
+                  } else if (n_not_junction_readings == 3) {
+                    n_junction_readings = 0;
+                    
+                  }
+                  */
+                  Serial.println(String(n_junctions));
+                  
+                  /*
+                  left_speed = 200 - (line_follow_ratio * 33);
+                  right_speed = 200 + (line_follow_ratio * 33);
+                  
+                  Serial.println(String(line_follow_ratio));
+                  Serial.println(String(left_speed) + String(right_speed));
+                  */
+                }
+              }
+            }
+          }
+        }
 }
 
 void line_following(){
-  decide_line_follow_speed();
+  get_line_sensor_readings(true);
+   decide_line_follow_speed();
+  
+ /* decide_line_follow_speed();
   get_line_sensor_readings(false);
-  bool old_reading = line_reading;
-  bool new_reading = line_reading;
-  float line_follow_ratio = 0;
-    while (mode == "auto") {
+  for (int i = 0; i < n_line_sensors; i++) {
+    old_reading[i] = line_reading[i];
+    new_reading[i] = line_reading[i];
+  }
+    
       get_line_sensor_readings(false);
-      new_reading = line_reading;
-      if (new_reading != old_reading and new_reading != bool([0,0,0,0]) and new_reading != bool([0,1,0,1]) and new_reading != bool([1,0,1,0]) and new_reading != bool([1,1,0,1]) and new_reading != bool([1,0,1,1])) {
-        old_reading = new_reading;
-        line_follow_ratio = 0;
-        for (int i = 0; i < n_line_sensors; i++)  {
-          line_follow_ratio += new_reading[i]*i;
-        }
-        line_follow_ratio = line_follow_ratio/3 -1.5;
-        
-        Motor1->setSpeed(left_speed + line_follow_ratio * 20);
-        Motor2->setSpeed(right_speed + line_follow_ratio * 20);
-        Motor1->run(FORWARD);
-        Motor2->run(FORWARD);
+      for (int i = 0; i < n_line_sensors; i++) {
+        new_reading[i] = line_reading[i];
       }
-      }
-      }
+        if (new_reading != invalid_reading1) {
+          if (new_reading != invalid_reading2) {
+            if (new_reading != invalid_reading3) {
+              if (new_reading != invalid_reading4) {
+                if (new_reading != invalid_reading5) {
+                  for (int i = 0; i < n_line_sensors; i++) {
+                    old_reading[i] = new_reading[i];
+                  }
+                  line_follow_ratio = 0;
+                  for (int i = 0; i < n_line_sensors; i++)  {
+                    line_follow_ratio += new_reading[i]*i;
+                  }
+                  line_follow_ratio = line_follow_ratio/3 -1.5;
+                  left_speed = 150 + line_follow_ratio * 20;
+                  right_speed = 150 + line_follow_ratio * 20;
+                }
+              }
+            }
+          }
+        }*/
+   }
+
   
 
 

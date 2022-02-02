@@ -29,8 +29,7 @@ void loop() {
   // Calculating the distance
   ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
 
-  if (ultrasonic_distance < 5) {
-    Serial.println("Block close");
-    delay(100);
-  }
+  Serial.println(ultrasonic_distance);
+  delay(100);
+  
 }
