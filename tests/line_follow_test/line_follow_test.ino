@@ -31,19 +31,14 @@ Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 int line_pins[] = {1, 2, 3, 4};
 int n_line_sensors = 4;
 bool line_reading[4] = {0,0,0,0};
-bool invalid_reading1[] = {0,0,0,0};
-bool invalid_reading2[] = {1,0,1,0};
-bool invalid_reading3[] = {0,1,0,1};
-bool invalid_reading4[] = {1,1,0,1};
-bool invalid_reading5[] = {1,0,1,1};
-bool junction[] = {1,1,1,1};
-bool old_reading[4] = {0,0,0,0};
-bool new_reading[4] = {0,0,0,0};
+/*bool old_reading[4] = {0,0,0,0};
+bool new_reading[4] = {0,0,0,0};*/
 float line_follow_ratio = 0;
 int n_sensors_high = 0;
 int n_junction_readings = 0;
-int n_not_junction_readings = 0;
 int n_junctions = 0;
+int n_error_readings = 0;
+bool off_line = false;
 
 String mode = "manual";
 
@@ -313,115 +308,67 @@ void get_line_sensor_readings(bool printResults) {
 
 void decide_line_follow_speed() {
   n_sensors_high = 0;
-        if (line_reading != invalid_reading1) {
-          if (line_reading != invalid_reading2) {
-            if (line_reading != invalid_reading3) {
-              if (line_reading != invalid_reading4) {
-                if (line_reading != invalid_reading5) {
-                  float line_follow_ratio = 0;
-                  for (int i = 0; i < n_line_sensors; i++)  {
-                    line_follow_ratio += line_reading[i]*i;
-                    n_sensors_high += line_reading[i];
-                  }
-                  if (n_sensors_high == 0) {
-                    line_follow_ratio = 0;
-                  }
-                  else {
-                    line_follow_ratio = (line_follow_ratio/n_sensors_high) -1.5;
-                  }
-                  if (line_follow_ratio > 0) {
-                    left_speed = 250 - (line_follow_ratio * 50);
-                    right_speed = 250;
-                  }
-                  else {
-                    left_speed = 250;
-                    right_speed = 250 + (line_follow_ratio * 50);
-                  }
+  float line_follow_ratio = 0;
 
-                  bool is_junction = true;
-                  for (int i = 0; i < n_line_sensors; i++) {
-                    if (line_reading[i] != junction[i]){
-                       is_junction = false;
-                    }
-                  }
-                  if (is_junction) {
-                    n_junction_readings += 1;
-                  }
-                  else {
-                    n_junction_readings = 0;
-                  }
-                  if (n_junction_readings == 3){
-                    n_junctions += 1;                  }
-                  /*
-                  if (is_junction) {
-                    n_junction_readings += 1;
-                    n_not_junction_readings = 0;
-                  }
-                  else {
-                    n_not_junction_readings += 1;
-                    n_junction_readings = 0;
-                  }
-                  if (n_junction_readings == 3) {
-                    n_junctions += 1;
-                  } else if (n_not_junction_readings == 3) {
-                    n_junction_readings = 0;
-                    
-                  }
-                  */
-                  Serial.println(String(n_junctions));
-                  
-                  /*
-                  left_speed = 200 - (line_follow_ratio * 33);
-                  right_speed = 200 + (line_follow_ratio * 33);
-                  
-                  Serial.println(String(line_follow_ratio));
-                  Serial.println(String(left_speed) + String(right_speed));
-                  */
-                }
-              }
-            }
-          }
-        }
+  // proportional control
+  for (int i = 0; i < n_line_sensors; i++)  {
+    line_follow_ratio += line_reading[i]*i;
+    n_sensors_high += line_reading[i];
+  }
+  if (n_sensors_high == 0) {
+    line_follow_ratio = 0;
+  }
+  else {
+    line_follow_ratio = (line_follow_ratio/n_sensors_high) -1.5;
+  }
+
+  // set motor speeds based on ratio
+  if (line_follow_ratio > 0) {
+    left_speed = 250 - (line_follow_ratio * 50);
+    right_speed = 250;
+  }
+  else {
+    left_speed = 250;
+    right_speed = 250 + (line_follow_ratio * 50);
+  }  
+
+  // if enough junction readings detected, robot is at a junction
+  if (n_sensors_high == 4) {
+    n_junction_readings += 1;
+  } else {
+    n_junction_readings = 0;
+  }
+  if (n_junction_readings == 3){
+    n_junctions += 1; 
+    n_junction_readings = 0;
+  }
+
+  // if enough error readings detected, robot has left line
+  if (n_sensors_high == 0) {
+    n_error_readings += 1;
+  } else {
+    if (off_line) {
+      // if line detected after reversing process, start going forward again
+      motors_forward();
+    }
+    n_error_readings = 0;
+    off_line = false;
+  }
+  if (n_error_readings == 3){
+    off_line = true;
+    n_error_readings = 0;
+
+    // start reversing
+    motors_backward();
+  }
+
+  Serial.println(String(n_junctions));  
 }
 
 void line_following(){
   get_line_sensor_readings(true);
-   decide_line_follow_speed();
-  
- /* decide_line_follow_speed();
-  get_line_sensor_readings(false);
-  for (int i = 0; i < n_line_sensors; i++) {
-    old_reading[i] = line_reading[i];
-    new_reading[i] = line_reading[i];
-  }
-    
-      get_line_sensor_readings(false);
-      for (int i = 0; i < n_line_sensors; i++) {
-        new_reading[i] = line_reading[i];
-      }
-        if (new_reading != invalid_reading1) {
-          if (new_reading != invalid_reading2) {
-            if (new_reading != invalid_reading3) {
-              if (new_reading != invalid_reading4) {
-                if (new_reading != invalid_reading5) {
-                  for (int i = 0; i < n_line_sensors; i++) {
-                    old_reading[i] = new_reading[i];
-                  }
-                  line_follow_ratio = 0;
-                  for (int i = 0; i < n_line_sensors; i++)  {
-                    line_follow_ratio += new_reading[i]*i;
-                  }
-                  line_follow_ratio = line_follow_ratio/3 -1.5;
-                  left_speed = 150 + line_follow_ratio * 20;
-                  right_speed = 150 + line_follow_ratio * 20;
-                }
-              }
-            }
-          }
-        }*/
-   }
-
-  
+  decide_line_follow_speed();
+}
 
 
 void loop() {
