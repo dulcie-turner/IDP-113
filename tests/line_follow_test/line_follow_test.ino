@@ -331,6 +331,10 @@ void decide_line_follow_speed() {
     left_speed = 250;
     right_speed = 250 + (line_follow_ratio * 50);
   }  
+  if (off_line) {
+    left_speed /= 2;
+    right_speed /= 2;
+  }
 
   // if enough junction readings detected, robot is at a junction
   if (n_sensors_high == 4) {
@@ -349,17 +353,19 @@ void decide_line_follow_speed() {
   } else {
     if (off_line) {
       // if line detected after reversing process, start going forward again
+      delay(5);
       motors_forward();
     }
     n_error_readings = 0;
     off_line = false;
   }
-  if (n_error_readings == 3){
+  if (n_error_readings == 20){
     off_line = true;
     n_error_readings = 0;
 
     // start reversing
     motors_backward();
+    Serial.println("lost line");
   }
 
   Serial.println(String(n_junctions));  
