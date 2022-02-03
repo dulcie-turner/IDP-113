@@ -47,12 +47,15 @@ int n_junction_readings = 0;
 int n_not_junction_readings = 0;
 int n_junctions = 0;
 
+
 // ultrasonic definitions
 const int trigPin = 6;
 const int echoPin = 10;
 long ultrasonic_duration;
 int ultrasonic_distance;
+int block_distance_readings = 0;
 int block_distance;
+bool block_infront = 0;
 
 String mode = "manual";
 
@@ -334,9 +337,27 @@ int get_distance_sensor_readings() {
   digitalWrite(trigPin, LOW);
   // Reads the echoPin, returns the sound wave travel time in microseconds
   ultrasonic_duration = pulseIn(echoPin, HIGH);
-  // Calculating the distance
-  ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
+  // Calculating the distance ignoring 0 readings
+  if (ultrasonic_duration != 0){
+    ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
+  }
   return ultrasonic_distance;
+}
+
+void block_detection() {
+  if (block_distance < 15){
+    block_distance_readings += 1;
+  }
+  else{
+    block_distance_readings = 0;
+  }
+  if (block_distance_readings > 5){
+    block_infront = 1;
+  }
+  else{
+    block_infront = 0;
+  }
+  
 }
 
 
@@ -460,7 +481,12 @@ void loop() {
   }
 
   block_distance = get_distance_sensor_readings();
-  Serial.println(block_distance);
+  block_detection();
+  
+  /* Serial.println(block_distance); */
+  if (block_infront){
+    Serial.println("Block");
+  }
 
     // ------------ WIFI CODE -----------
   WiFiClient client = server.available();   // listen for incoming clients
