@@ -23,8 +23,8 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 
 // Select which 'port' M1, M2, M3 or M4. In this case, M1
-Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
-Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
+Adafruit_DCMotor *Motor1 = AFMS.getMotor(2);
+Adafruit_DCMotor *Motor2 = AFMS.getMotor(1);
 
 
 // setup line sensors
@@ -332,8 +332,8 @@ void decide_line_follow_speed() {
     right_speed = 250 + (line_follow_ratio * 50);
   }  
   if (off_line) {
-    left_speed /= 2;
-    right_speed /= 2;
+    left_speed *= 2/3;
+    right_speed *= 2/3;
   }
 
   // if enough junction readings detected, robot is at a junction
@@ -359,7 +359,7 @@ void decide_line_follow_speed() {
     n_error_readings = 0;
     off_line = false;
   }
-  if (n_error_readings == 20){
+  if (n_error_readings == 30){
     off_line = true;
     n_error_readings = 0;
 
