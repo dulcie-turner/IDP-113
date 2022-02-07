@@ -12,7 +12,8 @@
 Servo myservo;  // create servo object to control a servo
 
 
-int pos_max = 150;
+//int pos_max = 150;
+int pos_max = 135;
 int pos_min = 30;
 
 int pos = pos_min;    // variable to store the servo position
@@ -27,12 +28,20 @@ void setup() {
   Serial.begin(9600);
 }
 
+int count = 0;
+
 void loop() {
   
   myservo.write(pos);              // tell servo to go to position in variable 'pos'
 
-  pos += pos_increment;
-  if (pos == pos_max) pos = pos_min;  // flip servo direction of motion
+ 
+  if (pos >= pos_max) { count += 1; } else {
+     pos += pos_increment;
+  }
+  if (count == 50) {
+    pos = pos_min;  // flip servo direction of motion
+    count = 0;
+  }
   Serial.println(analogRead(servo_input));
   delay(15);
   

@@ -507,8 +507,13 @@ bool return_block(bool block_number) {
 
     case 7:
       // stage 7 = turn to face forward
-      if (block_type == "coarse") motors_turn_90("left");
-      else if (block_type == "fine") motors_turn_90("right");
+      if (block_number != 2) {
+        if (block_type == "coarse") motors_turn_90("left");
+        else if (block_type == "fine") motors_turn_90("right");
+      } else {
+        if (block_type == "coarse") motors_turn_90("right");
+        else if (block_type == "fine") motors_turn_90("left");        
+      }
      break;
   }
   Serial.println(("return stage %d complete", stage));
@@ -528,10 +533,6 @@ void undo_find_final_block() {
 
 void goto_centre_of_box() {
   
-}
-
-void undo_goto_centre_of_box() {
-
 }
   
 void main_routine() {
