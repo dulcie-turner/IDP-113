@@ -62,7 +62,6 @@ int keyIndex = 0;                 // your network key Index number (needed only 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
 
-
 // motor speed control
 int left_speed = 255;
 int right_speed = 255;
@@ -71,6 +70,7 @@ int previous_left_speed = 0;
 int previous_right_speed = 0;
 
 int stage = 0;
+int return_stage = 0;
 String block_type;
 
 void motors_change_speed() {
@@ -137,7 +137,149 @@ void motors_turn_90(String direction) {
   motors_change_speed();
 }
 
+void motors_turn_180() {
+   Motor1->setSpeed(200);
+   Motor2->setSpeed(200); 
+   Motor1->run(FORWARD);
+   Motor2->run(BACKWARD);
 
+  delay(4000);
+  motors_stop();
+  motors_change_speed();
+}
+
+
+// handle somebody connecting to wifi server
+void handle_client(WiFiClient client) {
+
+
+  Serial.println("new client");           // print a message out the serial port
+  String currentLine = "";                // make a String to hold incoming data from the client
+  while (client.connected()) {            // loop while the client's connected
+    if (client.available()) {             // if there's bytes to read from the client,
+      char c = client.read();             // read a byte, then
+      Serial.write(c);                    // print it out the serial monitor
+      if (c == '\n') {                    // if the byte is a newline character
+
+        // if the current line is blank, you got two newline characters in a row.
+        // that's the end of the client HTTP request, so send a response:
+        if (currentLine.length() == 0) {
+          // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+          // and a content-type so the client knows what's coming, then a blank line:
+          client.println("HTTP/1.1 200 OK");
+          client.println("Content-type:text/html");
+          client.println();
+
+          // the content of the HTTP response follows the header:
+          client.print("<style>* {font-size: 26pt} </style>");
+          client.print("Click <a href=\"/F\">here</a> to set the motors to FORWARD<br>");
+          client.print("Click <a href=\"/B\">here</a> to set the motors to BACKWARD<br>");
+          client.print("Click <a href=\"/S\">here</a> to set the motors to STOP<br><br>");
+          client.print("Click <a href=\"/SL\">here</a> to set the motors to SLOW LEFT<br>");
+          client.print("Click <a href=\"/FL\">here</a> to set the motors to FAST LEFT<br>");
+          client.print("Click <a href=\"/SR\">here</a> to set the motors to SLOW RIGHT<br>");
+          client.print("Click <a href=\"/FR\">here</a> to set the motors to FAST RIGHT<br><br>");
+          client.print("Click <a href=\"/fast\">here</a> to set the speed to FAST<br>");
+          client.print("Click <a href=\"/medium\">here</a> to set the speed to MEDIUM<br>");
+          client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br><br><br>");
+          client.print("Click <a href=\"/line\">here</a> to set the mode to LINE FOLLOW<br>");
+          client.print("Click <a href=\"/main\">here</a> to set the mode to MAIN PROGRAM<br>");
+          client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
+          client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
+          client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
+          
+
+          // The HTTP response ends with another blank line:
+          client.println();
+          // break out of the while loop:
+          break;
+        } else {    // if you got a newline, then clear currentLine:
+          currentLine = "";
+        }
+      } else if (c != '\r') {  // if you got anything else but a carriage return character,
+        currentLine += c;      // add it to the end of the currentLine
+      }
+
+      // Check client request for command
+      if (currentLine.endsWith("GET /F")) {
+        motors_forward();
+      }
+      if (currentLine.endsWith("GET /S")) {
+        motors_stop();
+      }
+      if (currentLine.endsWith("GET /B")) {
+        motors_backward();
+      }
+      if (currentLine.endsWith("GET /SL")) {
+        motors_left_slow();
+      }
+      if (currentLine.endsWith("GET /FL")) {
+        motors_left_fast();
+      }
+      if (currentLine.endsWith("GET /SR")) {
+        motors_right_slow();
+      }
+      if (currentLine.endsWith("GET /FR")) {
+        motors_right_fast();
+      }
+      if (currentLine.endsWith("GET /fast")) {
+        left_speed = 250;
+        right_speed = 250;
+      }
+      if (currentLine.endsWith("GET /medium")) {
+        left_speed = 160;
+        right_speed = 160;
+      }
+      if (currentLine.endsWith("GET /slow")) {
+        left_speed = 60;
+        right_speed = 60;
+      }
+      if (currentLine.endsWith("GET /line")) {
+        mode = "auto";
+        motors_forward();
+      }
+      if (currentLine.endsWith("GET /main")) {
+        mode = "main";
+        stage = 0;
+      }
+      if (currentLine.endsWith("GET /manual")) {
+        mode = "manual";
+        motors_stop();
+        n_junctions = 0;
+      }
+      if (currentLine.endsWith("GET /L90")) {
+        motors_turn_90("left");
+      }
+      if (currentLine.endsWith("GET /R90")) {
+        motors_turn_90("right");
+      }
+    }
+  }
+
+  // close the connection:
+  client.stop(); 
+  Serial.println("client disonnected");
+}
+
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your board's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
+  // print where to go in a browser:
+  Serial.print("To see this page in action, open a browser to http://");
+  Serial.println(ip);
+}
 
 
 void setup() {
@@ -304,12 +446,57 @@ void pick_up_block() {
   // TO DO  
 }
 
+void drop_block() {
+
+}
+
 String identify_block() {
   return "to do";
 }
 
 void return_block(bool block_number) {
-  // TO DO, lol
+  switch (return_stage) {
+    case 0:
+      // stage 0 = turn 180 degrees
+      motors_turn_180();
+     break;
+
+    case 1:
+      // stage 1 = follow line up until red/blue junction
+      
+      int junctions_to_move;
+      if (block_number == 0) junctions_to_move = 1;
+      if (block_number == 1 || block_number == 2) junctions_to_move = 2;
+
+      initial_junctions = n_junctions;
+      while(n_junctions != initial_junctions + junctions_to_move) {
+        line_following(false);
+      }
+      motors_stop();
+     break;
+
+    case 2:
+      // stage 2 = turn left/right depending on block type
+      if (block_type == "coarse") motors_turn_90("right");
+      else if (block_type == "fine") motors_turn_90("left");
+     break;
+
+     case 3:
+      // stage 3 = move to centre of box
+      goto_centre_of_box();
+     break;
+
+     case 4:
+       // stage 4 = drop block
+       drop_block();
+      break;
+
+     case 5:
+       // stage 5 = go to edge of box
+       undo_goto_centre_of_box();
+      break;
+    
+  }
 
 }
 
@@ -323,6 +510,10 @@ void undo_find_final_block() {
 
 void goto_centre_of_box() {
   
+}
+
+void undo_goto_centre_of_box() {
+
 }
   
 void main_routine() {
@@ -373,6 +564,7 @@ void main_routine() {
 
     case 6:
       // stage 6 = return block to correct box
+      return_stage = 0;
       return_block(1);
      break;
 
@@ -407,6 +599,7 @@ void main_routine() {
 
     case 11:
       // stage 11 = return block to correct box
+      return_stage = 0;
       return_block(2);
      break;
 
