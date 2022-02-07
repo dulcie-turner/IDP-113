@@ -75,6 +75,8 @@ int right_speed = 255;
 int previous_left_speed = 0;
 int previous_right_speed = 0;
 
+int stage = 0;
+
 
 void motors_change_speed() {
   Motor1->setSpeed(left_speed);
@@ -175,6 +177,7 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/medium\">here</a> to set the speed to MEDIUM<br>");
           client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br><br><br>");
           client.print("Click <a href=\"/line\">here</a> to set the mode to LINE FOLLOW<br>");
+          client.print("Click <a href=\"/main\">here</a> to set the mode to MAIN PROGRAM<br>");
           client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
           client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
           client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
@@ -228,6 +231,10 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /line")) {
         mode = "auto";
         motors_forward();
+      }
+      if (currentLine.endsWith("GET /main")) {
+        mode = "main";
+        stage = 0;
       }
       if (currentLine.endsWith("GET /manual")) {
         mode = "manual";
