@@ -454,7 +454,7 @@ String identify_block() {
   return "to do";
 }
 
-void return_block(bool block_number) {
+bool return_block(bool block_number) {
   switch (return_stage) {
     case 0:
       // stage 0 = turn 180 degrees
@@ -492,12 +492,30 @@ void return_block(bool block_number) {
       break;
 
      case 5:
-       // stage 5 = go to edge of box
-       undo_goto_centre_of_box();
+       // stage 5 = turn around
+       motors_turn_180();
       break;
-    
-  }
 
+     case 6:
+        // stage 6 = get to central junction
+        initial_junctions = n_junctions;
+        while(n_junctions != initial_junctions + 2) {
+          line_following(false);
+        }
+        motors_stop();   
+        break;
+
+    case 7:
+      // stage 7 = turn to face forward
+      if (block_type == "coarse") motors_turn_90("left");
+      else if (block_type == "fine") motors_turn_90("right");
+     break;
+  }
+  Serial.println(("return stage %d complete", stage));
+  stage += 1;
+
+  // return true if completed
+  return (stage == 8);
 }
 
 void find_final_block() {
@@ -544,7 +562,7 @@ void main_routine() {
 
     case 3:
       // stage 3 = return block to correct box
-      return_block(0);
+      while (!return_block(0)) {};
      break;
 
     case 4:
@@ -565,7 +583,7 @@ void main_routine() {
     case 6:
       // stage 6 = return block to correct box
       return_stage = 0;
-      return_block(1);
+      while (!return_block(1)) {};
      break;
 
     case 7:
@@ -600,7 +618,7 @@ void main_routine() {
     case 11:
       // stage 11 = return block to correct box
       return_stage = 0;
-      return_block(2);
+      while (!return_block(2)) {};
      break;
 
     case 12:
@@ -618,7 +636,7 @@ void main_routine() {
      break;
   }
 
-  Serial.println(("stage %d complete", stage));
+  Serial.println(("return stage %d complete", stage));
   stage += 1;
 }
 
