@@ -52,7 +52,7 @@ bool block_infront = 0;
 
 String mode = "manual";
 
-// sort out wifi security
+// sort out wifi
 #include "arduino_secrets.h" 
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
@@ -60,6 +60,7 @@ int keyIndex = 0;                 // your network key Index number (needed only 
 
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
+
 
 // motor speed control
 int left_speed = 255;
@@ -136,137 +137,7 @@ void motors_turn_90(String direction) {
 }
 
 
-// handle somebody connecting to wifi server
-void handle_client(WiFiClient client) {
 
-
-  Serial.println("new client");           // print a message out the serial port
-  String currentLine = "";                // make a String to hold incoming data from the client
-  while (client.connected()) {            // loop while the client's connected
-    if (client.available()) {             // if there's bytes to read from the client,
-      char c = client.read();             // read a byte, then
-      Serial.write(c);                    // print it out the serial monitor
-      if (c == '\n') {                    // if the byte is a newline character
-
-        // if the current line is blank, you got two newline characters in a row.
-        // that's the end of the client HTTP request, so send a response:
-        if (currentLine.length() == 0) {
-          // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-          // and a content-type so the client knows what's coming, then a blank line:
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-type:text/html");
-          client.println();
-
-          // the content of the HTTP response follows the header:
-          client.print("<style>* {font-size: 26pt} </style>");
-          client.print("Click <a href=\"/F\">here</a> to set the motors to FORWARD<br>");
-          client.print("Click <a href=\"/B\">here</a> to set the motors to BACKWARD<br>");
-          client.print("Click <a href=\"/S\">here</a> to set the motors to STOP<br><br>");
-          client.print("Click <a href=\"/SL\">here</a> to set the motors to SLOW LEFT<br>");
-          client.print("Click <a href=\"/FL\">here</a> to set the motors to FAST LEFT<br>");
-          client.print("Click <a href=\"/SR\">here</a> to set the motors to SLOW RIGHT<br>");
-          client.print("Click <a href=\"/FR\">here</a> to set the motors to FAST RIGHT<br><br>");
-          client.print("Click <a href=\"/fast\">here</a> to set the speed to FAST<br>");
-          client.print("Click <a href=\"/medium\">here</a> to set the speed to MEDIUM<br>");
-          client.print("Click <a href=\"/slow\">here</a> to set the speed to SLOW<br><br><br>");
-          client.print("Click <a href=\"/line\">here</a> to set the mode to LINE FOLLOW<br>");
-          client.print("Click <a href=\"/main\">here</a> to set the mode to MAIN PROGRAM<br>");
-          client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
-          client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
-          client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
-          
-
-          // The HTTP response ends with another blank line:
-          client.println();
-          // break out of the while loop:
-          break;
-        } else {    // if you got a newline, then clear currentLine:
-          currentLine = "";
-        }
-      } else if (c != '\r') {  // if you got anything else but a carriage return character,
-        currentLine += c;      // add it to the end of the currentLine
-      }
-
-      // Check client request for command
-      if (currentLine.endsWith("GET /F")) {
-        motors_forward();
-      }
-      if (currentLine.endsWith("GET /S")) {
-        motors_stop();
-      }
-      if (currentLine.endsWith("GET /B")) {
-        motors_backward();
-      }
-      if (currentLine.endsWith("GET /SL")) {
-        motors_left_slow();
-      }
-      if (currentLine.endsWith("GET /FL")) {
-        motors_left_fast();
-      }
-      if (currentLine.endsWith("GET /SR")) {
-        motors_right_slow();
-      }
-      if (currentLine.endsWith("GET /FR")) {
-        motors_right_fast();
-      }
-      if (currentLine.endsWith("GET /fast")) {
-        left_speed = 250;
-        right_speed = 250;
-      }
-      if (currentLine.endsWith("GET /medium")) {
-        left_speed = 160;
-        right_speed = 160;
-      }
-      if (currentLine.endsWith("GET /slow")) {
-        left_speed = 60;
-        right_speed = 60;
-      }
-      if (currentLine.endsWith("GET /line")) {
-        mode = "auto";
-        motors_forward();
-      }
-      if (currentLine.endsWith("GET /main")) {
-        mode = "main";
-        stage = 0;
-      }
-      if (currentLine.endsWith("GET /manual")) {
-        mode = "manual";
-        motors_stop();
-        n_junctions = 0;
-      }
-      if (currentLine.endsWith("GET /L90")) {
-        motors_turn_90("left");
-      }
-      if (currentLine.endsWith("GET /R90")) {
-        motors_turn_90("right");
-      }
-    }
-  }
-
-  // close the connection:
-  client.stop(); 
-  Serial.println("client disonnected");
-}
-
-void printWifiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
-
-  // print your board's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
-
-  // print the received signal strength:
-  long rssi = WiFi.RSSI();
-  Serial.print("signal strength (RSSI):");
-  Serial.print(rssi);
-  Serial.println(" dBm");
-  // print where to go in a browser:
-  Serial.print("To see this page in action, open a browser to http://");
-  Serial.println(ip);
-}
 
 void setup() {
   Serial.begin(9600);           // set up Serial library at 9600 bps
@@ -344,24 +215,26 @@ int get_distance_sensor_readings() {
   return ultrasonic_distance;
 }
 
-void block_detection() {
+bool block_detection() {
+  // detects a block after 5 consecutive block readings
+  // returns 1 if detected
   if (block_distance < 15){
     block_distance_readings += 1;
   }
   else{
     block_distance_readings = 0;
   }
-  if (block_distance_readings > 5){
+  return (block_distance_readings > 5);
+}
+  /*(if (block_distance_readings > 5){
     block_infront = 1;
   }
   else{
     block_infront = 0;
-  }
-  
-}
+  }*/
 
 
-void decide_line_follow_speed() {
+void decide_line_follow_speed(bool region_without_line) {
   n_sensors_high = 0;
   float line_follow_ratio = 0;
 
@@ -403,47 +276,73 @@ void decide_line_follow_speed() {
     Serial.println(String(n_junctions) + " junctions");  
   }
 
-  // if enough error readings detected, robot has left line
-  if (n_sensors_high == 0) {
-    n_error_readings += 1;
-  } else {
-    if (off_line) {
-      // if line detected after reversing process, start going forward again
-      delay(5);
-      motors_forward();
+  if (!region_without_line) {
+    // if enough error readings detected, robot has left line
+    // only check for this if robot is both line following and junction detecting (rather than only searching for a junction
+    if (n_sensors_high == 0) {
+      n_error_readings += 1;
+    } else {
+      if (off_line) {
+        // if line detected after reversing process, start going forward again
+        delay(5);
+        motors_forward();
+      }
+      n_error_readings = 0;
+      off_line = false;
     }
-    n_error_readings = 0;
-    off_line = false;
-  }
-  if (n_error_readings == 30){
-    off_line = true;
-    n_error_readings = 0;
-
-    // start reversing
-    motors_backward();
-    Serial.println("lost line");
+    if (n_error_readings == 30){
+      off_line = true;
+      n_error_readings = 0;
+    
+      // start reversing
+      motors_backward();
+      Serial.println("lost line");
+    }
   }
 }
 
-void line_following(){
+void line_following(bool region_without_line){
   get_line_sensor_readings(true);
-  decide_line_follow_speed();
+  decide_line_follow_speed(region_without_line);
  }
 
   
+void main_routine() {
 
+  switch (stage) {
+    case 0:
+      // stage 0 = leave start box
+      while(n_junctions != 1) {
+        line_following(true);
+      }
+      motors_stop();
+     break;
+
+    case 1:
+      // stage 1 = follow line until block detected
+      do {
+        line_following(false);
+        block_distance = get_distance_sensor_readings();
+      } while (!block_detection());
+      motors_stop();
+     break;
+  }
+
+  Serial.println(("stage %d complete", stage));
+  stage += 1;
+}
 
 void loop() {
 
   if (mode == "auto") {
-    line_following();
+    line_following(false);
+  } else if (mode == "main") {
+    main_routine();
   }
 
   block_distance = get_distance_sensor_readings();
-  block_detection();
-  
-  /* Serial.println(block_distance); */
-  if (block_infront){
+ 
+  if (block_detection()){
     Serial.println("Block");
   }
 
