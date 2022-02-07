@@ -409,31 +409,9 @@ void decide_line_follow_speed() {
                   }
                   if (n_junction_readings == 3){
                     n_junctions += 1;                  }
-                  /*
-                  if (is_junction) {
-                    n_junction_readings += 1;
-                    n_not_junction_readings = 0;
-                  }
-                  else {
-                    n_not_junction_readings += 1;
-                    n_junction_readings = 0;
-                  }
-                  if (n_junction_readings == 3) {
-                    n_junctions += 1;
-                  } else if (n_not_junction_readings == 3) {
-                    n_junction_readings = 0;
-                    
-                  }
-                  */
+
                   Serial.println(String(n_junctions));
-                  
-                  /*
-                  left_speed = 200 - (line_follow_ratio * 33);
-                  right_speed = 200 + (line_follow_ratio * 33);
-                  
-                  Serial.println(String(line_follow_ratio));
-                  Serial.println(String(left_speed) + String(right_speed));
-                  */
+
                 }
               }
             }
@@ -443,40 +421,8 @@ void decide_line_follow_speed() {
 
 void line_following(){
   get_line_sensor_readings(true);
-   decide_line_follow_speed();
-  
- /* decide_line_follow_speed();
-  get_line_sensor_readings(false);
-  for (int i = 0; i < n_line_sensors; i++) {
-    old_reading[i] = line_reading[i];
-    new_reading[i] = line_reading[i];
-  }
-    
-      get_line_sensor_readings(false);
-      for (int i = 0; i < n_line_sensors; i++) {
-        new_reading[i] = line_reading[i];
-      }
-        if (new_reading != invalid_reading1) {
-          if (new_reading != invalid_reading2) {
-            if (new_reading != invalid_reading3) {
-              if (new_reading != invalid_reading4) {
-                if (new_reading != invalid_reading5) {
-                  for (int i = 0; i < n_line_sensors; i++) {
-                    old_reading[i] = new_reading[i];
-                  }
-                  line_follow_ratio = 0;
-                  for (int i = 0; i < n_line_sensors; i++)  {
-                    line_follow_ratio += new_reading[i]*i;
-                  }
-                  line_follow_ratio = line_follow_ratio/3 -1.5;
-                  left_speed = 150 + line_follow_ratio * 20;
-                  right_speed = 150 + line_follow_ratio * 20;
-                }
-              }
-            }
-          }
-        }*/
-   }
+  decide_line_follow_speed();
+ }
 
   
 
