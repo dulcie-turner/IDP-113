@@ -37,6 +37,7 @@ float line_follow_ratio = 0;
 int n_sensors_high = 0;
 int n_junction_readings = 0;
 int n_junctions = 0;
+int initial_junctions;
 int n_error_readings = 0;
 bool off_line = false;
 
@@ -70,7 +71,7 @@ int previous_left_speed = 0;
 int previous_right_speed = 0;
 
 int stage = 0;
-
+String block_type;
 
 void motors_change_speed() {
   Motor1->setSpeed(left_speed);
@@ -226,13 +227,6 @@ bool block_detection() {
   }
   return (block_distance_readings > 5);
 }
-  /*(if (block_distance_readings > 5){
-    block_infront = 1;
-  }
-  else{
-    block_infront = 0;
-  }*/
-
 
 void decide_line_follow_speed(bool region_without_line) {
   n_sensors_high = 0;
@@ -306,6 +300,30 @@ void line_following(bool region_without_line){
   decide_line_follow_speed(region_without_line);
  }
 
+void pick_up_block() {
+  // TO DO  
+}
+
+String identify_block() {
+  return "to do";
+}
+
+void return_block(bool block_number) {
+  // TO DO, lol
+
+}
+
+void find_final_block() {
+  // TO DO
+}
+
+void undo_find_final_block() {
+  // move robot to position before searching for final block
+}
+
+void goto_centre_of_box() {
+  
+}
   
 void main_routine() {
 
@@ -325,6 +343,85 @@ void main_routine() {
         block_distance = get_distance_sensor_readings();
       } while (!block_detection());
       motors_stop();
+     break;
+
+    case 2:
+      // stage 2 = pick up & identify block
+      pick_up_block();
+      block_type = identify_block();
+     break;
+
+    case 3:
+      // stage 3 = return block to correct box
+      return_block(0);
+     break;
+
+    case 4:
+      // stage 4 = follow line until block detected
+      do {
+        line_following(false);
+        block_distance = get_distance_sensor_readings();
+      } while (!block_detection());
+      motors_stop();
+     break;
+
+    case 5:
+      // stage 5 = pick up & identify block
+      pick_up_block();
+      block_type = identify_block();
+     break;
+
+    case 6:
+      // stage 6 = return block to correct box
+      return_block(1);
+     break;
+
+    case 7:
+      // stage 7 = line follow until final junction (at furthest box)
+      initial_junctions = n_junctions;
+      while(n_junctions != initial_junctions + 2) {
+        line_following(true);
+      }
+      motors_stop();
+     break;
+
+    case 8:
+      // stage 8 = search for final block
+      do {
+        find_final_block();
+        block_distance = get_distance_sensor_readings();
+      } while (!block_detection());
+      motors_stop();
+     break;  
+
+    case 9:
+      // stage 9 = pick up & identify block
+      pick_up_block();
+      block_type = identify_block();
+     break;
+
+    case 10:
+      // stage 10 = return to entrance of furthest box
+      undo_find_final_block();
+     break;
+
+    case 11:
+      // stage 11 = return block to correct box
+      return_block(2);
+     break;
+
+    case 12:
+      // stage 12 = return to entrance of start/stop area
+      initial_junctions = n_junctions;
+      while(n_junctions != initial_junctions + 1) {
+        line_following(true);
+      }
+      motors_stop();
+     break;
+
+    case 13:
+      // stage 13 = go to centre of start/stop area
+      goto_centre_of_box();
      break;
   }
 
