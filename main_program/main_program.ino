@@ -530,15 +530,37 @@ bool return_block(bool block_number) {
 }
 
 void find_final_block() {
-  // TO DO
+  // move forward in a straight line until block found or edge of box reached
+  // (edge of box condition for error handling - if block is missed / ultrasonic sensor faulty,
+  // robot can hopefully still return to start)
+  
+  initial_junctions = n_junctions;
+  while(n_junctions <= initial_junctions + 1 && !block_detection()) {
+    line_following(false);
+    block_distance = get_distance_sensor_readings();
+  }
+  motors_stop();
 }
 
 void undo_find_final_block() {
-  // move robot to position before searching for final block
+  // move robot to entrance of final box
+  motors_turn_180();
+  initial_junctions = n_junctions;
+  while(n_junctions <= initial_junctions + 1) {
+    line_following(false);
+  }
 }
 
 void goto_centre_of_box() {
-  
+  // drive to edge of block then reverse a bit
+  initial_junctions = n_junctions;
+  while(n_junctions <= initial_junctions + 1) {
+    line_following(false);
+  }
+
+  motors_backward();
+  delay(15);
+  motors_stop();
 }
   
 void main_routine() {
@@ -604,11 +626,7 @@ void main_routine() {
 
     case 8:
       // stage 8 = search for final block
-      do {
-        find_final_block();
-        block_distance = get_distance_sensor_readings();
-      } while (!block_detection());
-      motors_stop();
+      find_final_block();
      break;  
 
     case 9:
