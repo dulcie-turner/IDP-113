@@ -43,14 +43,18 @@ stage = 9
 Block identified -> stage 10
 
 stage = 10
-	RETURN BLOCK FUNCTION (but final turning is opposite)
-Once complete -> stage 11
-	
-stage = 11
-	Follow line
-Junction detected -> stage 12
+	Return to entrance of box
+Junction detected -> stage 11
 
+stage = 11
+	RETURN BLOCK FUNCTION (but final turning is opposite)
+Once complete -> stage 12
+	
 stage = 12
+	Follow line
+Junction detected -> stage 13
+
+stage = 13
 	Move forward (no line)
 After x seconds or junction met -> DONE
 
