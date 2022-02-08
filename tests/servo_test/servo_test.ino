@@ -31,7 +31,7 @@ void setup() {
 int count = 0;
 
 void loop() {
-  
+  /*
   myservo.write(pos);              // tell servo to go to position in variable 'pos'
 
  
@@ -44,5 +44,35 @@ void loop() {
   }
   Serial.println(analogRead(servo_input));
   delay(15);
-  
+  */
+  drop_block();
+  delay(1000);
+  pick_up_block();
+  delay(1000);
+  Serial.println(indentify_block());
+  delay(1000);
+}
+
+
+// To add to main_program-------------------
+
+void pick_up_block() {                                               //Picks up the block
+  pos = pos_max;
+  myservo.write(pos);
+}
+
+void drop_block(){                                                  // Drops the block
+  pos = pos_min;
+  myservo.write(pos);
+}
+
+String indentify_block() {                                          // Identifies the block
+  float sum_servo_input_readings = 0;
+  float avg_servo_input_reading = 0;
+  for (int i = 0; i < 100; i++) {                                   // Takes multiple readings
+    sum_servo_input_readings += analogRead(servo_input);
+  }
+  avg_servo_input_reading = sum_servo_input_readings/100;           // Finds average
+  if (avg_servo_input_reading > 650) {return "fine";}               // Determines if fine or coarse
+    else {return "coarse";}
 }
