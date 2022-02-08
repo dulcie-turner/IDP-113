@@ -18,6 +18,7 @@ If the wifi won't connect?
 #include <WiFiNINA.h>
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
+#include <Servo.h>
 
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -50,6 +51,11 @@ int ultrasonic_distance;
 int block_distance_readings = 0;
 int block_distance;
 bool block_infront = 0;
+
+// servo setup
+Servo myservo; 
+int pos_max = 135;
+int pos_min = 30;
 
 String mode = "manual";
 
