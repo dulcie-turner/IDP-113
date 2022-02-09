@@ -26,8 +26,8 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 
 // Select which 'port' M1, M2, M3 or M4. In this case, M1
-Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
-Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
+Adafruit_DCMotor *Motor1 = AFMS.getMotor(2);
+Adafruit_DCMotor *Motor2 = AFMS.getMotor(1);
 
 
 // setup line sensors
@@ -254,6 +254,7 @@ void handle_client(WiFiClient client) {
         mode = "manual";
         motors_stop();
         n_junctions = 0;
+        Serial.println("starting manual");
       }
       if (currentLine.endsWith("GET /L90")) {
         motors_turn_90("left");
@@ -404,13 +405,13 @@ void decide_line_follow_speed(bool region_without_line) {
     right_speed = 250 + (line_follow_ratio * 50);
   }  
 
-  Serial.println(String(left_speed) + " , " + String(right_speed));
+
   // move slower if reversing
   if (off_line) {
-    left_speed *= 2/3;
-    right_speed *= 2/3;
+    left_speed = 130;
+    right_speed = 130;
   }
-
+    Serial.println(String(left_speed) + " , " + String(right_speed));
   // if enough junction readings detected, robot is at a junction
   if (n_sensors_high == 4) {
     n_junction_readings += 1;
@@ -437,7 +438,7 @@ void decide_line_follow_speed(bool region_without_line) {
       n_error_readings = 0;
       off_line = false;
     }
-    if (n_error_readings == 30){
+    if (n_error_readings >= 40){
       off_line = true;
       n_error_readings = 0;
     
@@ -674,7 +675,9 @@ void loop() {
 
   if (mode == "auto") {
     line_following(false);
-  } else if (mode == "main") {
+  } 
+  if (mode == "main") {
+    Serial.println("starting main");
     main_routine();
   }
 

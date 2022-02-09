@@ -28,7 +28,7 @@ Adafruit_DCMotor *Motor2 = AFMS.getMotor(1);
 
 
 // setup line sensors
-int line_pins[] = {1, 2, 3, 4};
+int line_pins[] = {8, 12, 9, 11};
 int n_line_sensors = 4;
 bool line_reading[4] = {0,0,0,0};
 /*bool old_reading[4] = {0,0,0,0};
@@ -359,7 +359,7 @@ void decide_line_follow_speed() {
     n_error_readings = 0;
     off_line = false;
   }
-  if (n_error_readings == 30){
+  if (n_error_readings == 5){
     off_line = true;
     n_error_readings = 0;
 
