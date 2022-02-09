@@ -31,7 +31,7 @@ Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 
 
 // setup line sensors
-int line_pins[] = {1, 2, 3, 4};
+int line_pins[] = {8, 12, 9, 11};
 int n_line_sensors = 4;
 bool line_reading[4] = {0,0,0,0};
 float line_follow_ratio = 0;
@@ -128,6 +128,7 @@ void motors_right_slow() {
 }
 
 void motors_turn_90(String direction) {
+  // turn left or right 90 degrees
    Motor1->setSpeed(200);
    Motor2->setSpeed(200); 
   if (direction == "left") {
@@ -144,6 +145,7 @@ void motors_turn_90(String direction) {
 }
 
 void motors_turn_180() {
+  // turn 180 degrees
    Motor1->setSpeed(200);
    Motor2->setSpeed(200); 
    Motor1->run(FORWARD);
@@ -401,6 +403,9 @@ void decide_line_follow_speed(bool region_without_line) {
     left_speed = 250;
     right_speed = 250 + (line_follow_ratio * 50);
   }  
+
+  Serial.println(String(left_speed) + " , " + String(right_speed));
+  // move slower if reversing
   if (off_line) {
     left_speed *= 2/3;
     right_speed *= 2/3;
@@ -420,7 +425,7 @@ void decide_line_follow_speed(bool region_without_line) {
 
   if (!region_without_line) {
     // if enough error readings detected, robot has left line
-    // only check for this if robot is both line following and junction detecting (rather than only searching for a junction
+    // only check for this if robot is both line following and junction detecting (rather than only searching for a junction)
     if (n_sensors_high == 0) {
       n_error_readings += 1;
     } else {
@@ -531,7 +536,7 @@ bool return_block(bool block_number) {
 
 void find_final_block() {
   // move forward in a straight line until block found or edge of box reached
-  // (edge of box condition for error handling - if block is missed / ultrasonic sensor faulty,
+  // (edge of box condition for error handling means if block is missed / ultrasonic sensor faulty,
   // robot can hopefully still return to start)
   
   initial_junctions = n_junctions;
@@ -673,11 +678,11 @@ void loop() {
     main_routine();
   }
 
-  block_distance = get_distance_sensor_readings();
+  /*block_distance = get_distance_sensor_readings();
  
   if (block_detection()){
     Serial.println("Block");
-  }
+  }*/
 
     // ------------ WIFI CODE -----------
   WiFiClient client = server.available();   // listen for incoming clients
