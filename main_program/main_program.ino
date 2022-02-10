@@ -236,14 +236,21 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /fast")) {
         left_speed = 250;
         right_speed = 250;
+    
+    motors_change_speed();
+
       }
       if (currentLine.endsWith("GET /medium")) {
         left_speed = 160;
         right_speed = 160;
+    motors_change_speed();
+
       }
       if (currentLine.endsWith("GET /slow")) {
         left_speed = 60;
         right_speed = 60;
+    motors_change_speed();
+
       }
       if (currentLine.endsWith("GET /line")) {
         mode = "auto";
@@ -465,6 +472,8 @@ void decide_line_follow_speed(bool region_without_line) {
 void line_following(bool region_without_line){
   get_line_sensor_readings(true);
   decide_line_follow_speed(region_without_line);
+    motors_change_speed();
+
  }
 
 
@@ -726,10 +735,4 @@ void loop() {
   }
   // -------------------------------------
 
-  if (left_speed != previous_left_speed || right_speed != previous_right_speed) {
-    motors_change_speed();
-
-    previous_left_speed = left_speed;
-    previous_right_speed = right_speed;
-  }
 }
