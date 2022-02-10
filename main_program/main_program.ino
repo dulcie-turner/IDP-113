@@ -11,8 +11,14 @@ If the wifi won't connect?
   Try restarting the computer with the hotspot
 
   HC-SR04 code from www.HowToMechatronics.com
-*/
 
+How to update code:
+  Close serial port
+  Unplug power
+  Upload
+  Plug in power
+  Open serial port
+*/
  
 #include <SPI.h>
 #include <WiFiNINA.h>
@@ -26,18 +32,20 @@ Adafruit_MotorShield AFMS = Adafruit_MotorShield();
 // Adafruit_MotorShield AFMS = Adafruit_MotorShield(0x61);
 
 // Select which 'port' M1, M2, M3 or M4. In this case, M1
-Adafruit_DCMotor *Motor1 = AFMS.getMotor(2);
-Adafruit_DCMotor *Motor2 = AFMS.getMotor(1);
+Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
+Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 
 
 // setup line sensors
-int line_pins[] = {8, 12, 9, 11};
+int line_pins[] = {8, 12, 7, 11};
 int n_line_sensors = 4;
 bool line_reading[4] = {0,0,0,0};
 float line_follow_ratio = 0;
 int n_sensors_high = 0;
 int n_junction_readings = 0;
 int n_junctions = 0;
+int n_not_junction_readings = 0;
+bool on_junction = false;
 int initial_junctions;
 int n_error_readings = 0;
 bool off_line = false;
@@ -108,26 +116,26 @@ void motors_backward() {
 
 void motors_left_fast() {
   // set motors to turn left quickly
-  Motor1->run(FORWARD);
-  Motor2->run(BACKWARD);
-}
-
-void motors_left_slow() {
-  // set motors to turn left slowly
-  Motor1->run(FORWARD);
-  Motor2->run(RELEASE);
-}
-
-void motors_right_fast() {
-  // set motors to turn right quickly
   Motor1->run(BACKWARD);
   Motor2->run(FORWARD);
 }
 
-void motors_right_slow() {
-  // set motors to turn right slowly
+void motors_left_slow() {
+  // set motors to turn left slowly
   Motor1->run(RELEASE);
   Motor2->run(FORWARD);
+}
+
+void motors_right_fast() {
+  // set motors to turn right quickly
+  Motor1->run(FORWARD);
+  Motor2->run(BACKWARD);
+}
+
+void motors_right_slow() {
+  // set motors to turn right slowly
+  Motor1->run(FORWARD);
+  Motor2->run(RELEASE);
 }
 
 void motors_turn_90(String direction) {
@@ -135,11 +143,11 @@ void motors_turn_90(String direction) {
    Motor1->setSpeed(200);
    Motor2->setSpeed(200); 
   if (direction == "left") {
-    Motor1->run(FORWARD);
-    Motor2->run(BACKWARD);
-  } else {
     Motor1->run(BACKWARD);
     Motor2->run(FORWARD);
+  } else {
+    Motor1->run(FORWARD);
+    Motor2->run(BACKWARD);
   }
 
   delay(2000);
@@ -154,7 +162,7 @@ void motors_turn_180() {
    Motor1->run(FORWARD);
    Motor2->run(BACKWARD);
 
-  delay(4000);
+  delay(690);
   motors_stop();
   motors_change_speed();
 }
@@ -412,12 +420,12 @@ void decide_line_follow_speed(bool region_without_line) {
 
   // set motor speeds based on ratio
   if (line_follow_ratio > 0) {
-    left_speed = 250 - (line_follow_ratio * 50);
-    right_speed = 250;
+    left_speed = 250;
+    right_speed = 250 - (line_follow_ratio * 100);
   }
   else {
-    left_speed = 250;
-    right_speed = 250 + (line_follow_ratio * 50);
+    left_speed = 250 + (line_follow_ratio * 100);
+    right_speed = 250;
   }  
 
   Serial.println(String(left_speed) + " , " + String(right_speed));
@@ -430,13 +438,18 @@ void decide_line_follow_speed(bool region_without_line) {
   // if enough junction readings detected, robot is at a junction
   if (n_sensors_high == 4) {
     n_junction_readings += 1;
+    n_not_junction_readings = 0;
   } else {
     n_junction_readings = 0;
+    n_not_junction_readings += 1;
   }
-  if (n_junction_readings == 3){
+  if (n_junction_readings == 3 && on_junction == false){
     n_junctions += 1; 
-    n_junction_readings = 0;
+    on_junction = true;
     Serial.println(String(n_junctions) + " junctions");  
+  }
+  if (n_not_junction_readings == 3){
+    on_junction = false;
   }
 
   if (region_without_line == false) {
@@ -447,13 +460,13 @@ void decide_line_follow_speed(bool region_without_line) {
     } else {
       if (off_line) {
         // if line detected after reversing process, start going forward again
-        delay(15);
+        delay(10);
         motors_forward();
       }
       n_error_readings = 0;
       off_line = false;
     }
-    if (n_error_readings == 35){
+    if (n_error_readings == 90){
       off_line = true;
       n_error_readings = 0;
     
@@ -507,6 +520,7 @@ bool return_block(bool block_number) {
     case 0:
       // stage 0 = turn 180 degrees
       motors_turn_180();
+      motors_stop();
      break;
 
     case 1:
@@ -604,9 +618,10 @@ void goto_centre_of_box() {
   delay(15);
   motors_stop();
 }
+
   
 void main_routine() {
-  Serial.println(stage);
+  Serial.println(String(stage) + String("Stage"));
   switch (stage) {
     case 0:
       // stage 0 = leave start box
@@ -614,7 +629,8 @@ void main_routine() {
       right_speed = 200;
       motors_change_speed();
       motors_forward();
-      delay(3000);
+      delay(1500);
+      
       /*Serial.println(n_junctions);
       while(n_junctions != 1) {
         line_following(true);
@@ -623,10 +639,11 @@ void main_routine() {
 
     case 1:
       // stage 1 = follow line until block detected
+      initial_junctions = n_junctions;
       do {
         line_following(false);
-        block_distance = get_distance_sensor_readings();
-      } while (!block_detection());
+        //block_distance = get_distance_sensor_readings();
+      } while (n_junctions < initial_junctions + 2);
       motors_stop();
      break;
 
