@@ -19,7 +19,7 @@ int pos_min = 30;
 int pos = pos_min;    // variable to store the servo position
 int pos_increment = 1;
 
-int servo_input = A0;
+int servo_input = A5;
 
 void setup() {
   myservo.attach(10);  // attaches the servo on pin 9 to the servo object
@@ -31,7 +31,7 @@ void setup() {
 int count = 0;
 
 void loop() {
-  /*
+  
   myservo.write(pos);              // tell servo to go to position in variable 'pos'
 
  
@@ -44,13 +44,13 @@ void loop() {
   }
   Serial.println(analogRead(servo_input));
   delay(15);
-  */
-  drop_block();
+  
+  /*drop_block();
   delay(1000);
   pick_up_block();
   delay(1000);
   Serial.println(indentify_block());
-  delay(1000);
+  delay(1000);*/
 }
 
 

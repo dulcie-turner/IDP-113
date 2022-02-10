@@ -3,8 +3,8 @@
 */
 
 // ultrasonic definitions
-const int trigPin = 6;
-const int echoPin = 10;
+const int trigPin = 3; // green wire
+const int echoPin = 2;
 long ultrasonic_duration;
 int ultrasonic_distance;
 

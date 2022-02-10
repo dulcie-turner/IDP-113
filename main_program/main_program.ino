@@ -44,8 +44,8 @@ bool off_line = false;
 
 
 // ultrasonic definitions
-const int trigPin = 6;
-const int echoPin = 10;
+const int trigPin = 3;
+const int echoPin = 2;
 long ultrasonic_duration;
 int ultrasonic_distance;
 int block_distance_readings = 0;
@@ -53,9 +53,11 @@ int block_distance;
 bool block_infront = 0;
 
 // servo setup
-Servo myservo; 
-int pos_max = 135;
+Servo clawservo; 
+int servo_input = A5;
+int pos_max = 140;
 int pos_min = 30;
+int pos = pos_min;
 
 String mode = "manual";
 
@@ -93,6 +95,7 @@ void motors_forward() {
 
 void motors_stop() {
   // stop motors
+  Serial.println("stopping motors");
   Motor1->run(RELEASE);
   Motor2->run(RELEASE);
 }
@@ -254,7 +257,6 @@ void handle_client(WiFiClient client) {
         mode = "manual";
         motors_stop();
         n_junctions = 0;
-        Serial.println("starting manual");
       }
       if (currentLine.endsWith("GET /L90")) {
         motors_turn_90("left");
@@ -305,6 +307,9 @@ void setup() {
   pinMode(trigPin, OUTPUT); 
   pinMode(echoPin, INPUT); 
 
+  clawservo.attach(10);  
+  pinMode(servo_input, INPUT);
+
   // ----- CONNECTING TO WIFI ------
 
   // check for the WiFi module:
@@ -334,6 +339,9 @@ void setup() {
   printWifiStatus();                        // you're connected now, so print out the status
 
   // ----------------------------------
+
+  drop_block();
+  motors_stop();
 }
 
 
@@ -370,7 +378,7 @@ int get_distance_sensor_readings() {
 bool block_detection() {
   // detects a block after 5 consecutive block readings
   // returns 1 if detected
-  if (block_distance < 15){
+  if (block_distance < 12){
     block_distance_readings += 1;
   }
   else{
@@ -405,13 +413,13 @@ void decide_line_follow_speed(bool region_without_line) {
     right_speed = 250 + (line_follow_ratio * 50);
   }  
 
-
+  Serial.println(String(left_speed) + " , " + String(right_speed));
   // move slower if reversing
   if (off_line) {
-    left_speed = 130;
-    right_speed = 130;
+    left_speed = 150;
+    right_speed = 150;
   }
-    Serial.println(String(left_speed) + " , " + String(right_speed));
+
   // if enough junction readings detected, robot is at a junction
   if (n_sensors_high == 4) {
     n_junction_readings += 1;
@@ -424,7 +432,7 @@ void decide_line_follow_speed(bool region_without_line) {
     Serial.println(String(n_junctions) + " junctions");  
   }
 
-  if (!region_without_line) {
+  if (region_without_line == false) {
     // if enough error readings detected, robot has left line
     // only check for this if robot is both line following and junction detecting (rather than only searching for a junction)
     if (n_sensors_high == 0) {
@@ -432,20 +440,25 @@ void decide_line_follow_speed(bool region_without_line) {
     } else {
       if (off_line) {
         // if line detected after reversing process, start going forward again
-        delay(5);
+        delay(15);
         motors_forward();
       }
       n_error_readings = 0;
       off_line = false;
     }
-    if (n_error_readings >= 40){
+    if (n_error_readings == 35){
       off_line = true;
       n_error_readings = 0;
     
       // start reversing
+      left_speed = 150;
+      right_speed = 150;
       motors_backward();
       Serial.println("lost line");
     }
+  } else {
+    left_speed = 250;
+    right_speed = 250;
   }
 }
 
@@ -454,16 +467,30 @@ void line_following(bool region_without_line){
   decide_line_follow_speed(region_without_line);
  }
 
+
 void pick_up_block() {
-  // TO DO  
+  for (pos = pos_max; pos >= pos_min; pos -= 1) {
+     clawservo.write(pos);
+     delay(15);
+  }
 }
 
 void drop_block() {
-
+  for (pos = pos_min; pos <= pos_max; pos += 1) {
+     clawservo.write(pos);
+     delay(15);
+  }
 }
 
 String identify_block() {
-  return "to do";
+  float sum_servo_input_readings = 0;
+  float avg_servo_input_reading = 0;
+  for (int i = 0; i < 100; i++) {                                   // Takes multiple readings
+    sum_servo_input_readings += analogRead(servo_input);
+  }
+  avg_servo_input_reading = sum_servo_input_readings/100;           // Finds average
+  if (avg_servo_input_reading > 650) {return "fine";}               // Determines if fine or coarse
+  else {return "coarse";}
 }
 
 bool return_block(bool block_number) {
@@ -570,14 +597,19 @@ void goto_centre_of_box() {
 }
   
 void main_routine() {
-
+  Serial.println(stage);
   switch (stage) {
     case 0:
       // stage 0 = leave start box
+      left_speed = 200;
+      right_speed = 200;
+      motors_change_speed();
+      motors_forward();
+      delay(3000);
+      /*Serial.println(n_junctions);
       while(n_junctions != 1) {
         line_following(true);
-      }
-      motors_stop();
+      }*/
      break;
 
     case 1:
@@ -675,9 +707,7 @@ void loop() {
 
   if (mode == "auto") {
     line_following(false);
-  } 
-  if (mode == "main") {
-    Serial.println("starting main");
+  } else if (mode == "main") {
     main_routine();
   }
 
