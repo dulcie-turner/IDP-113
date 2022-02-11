@@ -49,6 +49,8 @@ bool on_junction = false;
 int initial_junctions;
 int n_error_readings = 0;
 bool off_line = false;
+bool turning_sensors = false;
+int sweep_distance = 0;
 
 
 // ultrasonic definitions
@@ -62,7 +64,7 @@ bool block_infront = 0;
 
 // servo setup
 Servo clawservo; 
-int servo_input = A5;
+int servo_input = A0;
 int pos_max = 140;
 int pos_min = 30;
 int pos = pos_min;
@@ -150,7 +152,7 @@ void motors_turn_90(String direction) {
     Motor2->run(BACKWARD);
   }
 
-  delay(2000);
+  delay(1800);
   motors_stop();
   motors_change_speed();
 }
@@ -162,8 +164,44 @@ void motors_turn_180() {
    Motor1->run(FORWARD);
    Motor2->run(BACKWARD);
 
-  delay(690);
+  delay(3200);
   motors_stop();
+
+  turning_sensors = false;
+  sweep_distance = 0;
+  
+  while (turning_sensors == false) {
+   sweep_distance += 50;
+   motors_right_fast();
+   motors_change_speed();
+   delay(sweep_distance);
+   get_line_sensor_readings(false);
+   n_sensors_high = 0;
+   for (int i = 0; i < n_line_sensors; i++)  {
+     n_sensors_high += line_reading[i];
+   }
+   if (n_sensors_high != 0) {
+    turning_sensors = true;
+   }
+   else {
+    sweep_distance += 50;
+    motors_left_fast();
+    motors_change_speed();
+    delay(sweep_distance);
+    get_line_sensor_readings(false);
+    n_sensors_high = 0;
+    for (int i = 0; i < n_line_sensors; i++)  {
+      n_sensors_high += line_reading[i];
+   }
+      if (n_sensors_high != 0) {
+      turning_sensors = true;
+   }
+   }
+  }
+  
+  delay(100);
+  motors_stop();
+  
   motors_change_speed();
 }
 
@@ -206,6 +244,7 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
           client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
           client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
+          client.print("Click <a href=\"/T180\">here</a> to set the mode to Turn 180<br>");
           
 
           // The HTTP response ends with another blank line:
@@ -279,6 +318,9 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /R90")) {
         motors_turn_90("right");
       }
+      if (currentLine.endsWith("GET /T180")) {
+        motors_turn_180();
+      }
     }
   }
 
@@ -309,22 +351,23 @@ void printWifiStatus() {
 
 
 void setup() {
+  
   Serial.begin(9600);           // set up Serial library at 9600 bps
-
+Serial.println("HELLO???");
   AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
 
   for (int i = 0; i < n_line_sensors; i++) {
     pinMode(line_pins[i], INPUT);
   }
-
+Serial.println("HELLO???");
   // ultrasonic pins
   pinMode(trigPin, OUTPUT); 
   pinMode(echoPin, INPUT); 
-
+Serial.println("HELLO???");
   clawservo.attach(10);  
   pinMode(servo_input, INPUT);
-
+Serial.println("HELLO???");
   // ----- CONNECTING TO WIFI ------
 
   // check for the WiFi module:
@@ -436,7 +479,7 @@ void decide_line_follow_speed(bool region_without_line) {
   }
 
   // if enough junction readings detected, robot is at a junction
-  if (n_sensors_high == 4) {
+  if (n_sensors_high >= 3) {
     n_junction_readings += 1;
     n_not_junction_readings = 0;
   } else {
@@ -515,12 +558,17 @@ String identify_block() {
   else {return "coarse";}
 }
 
+bool return_block_complete;
+
 bool return_block(bool block_number) {
+  Serial.println(String(return_stage) + " return stage");
   switch (return_stage) {
     case 0:
       // stage 0 = turn 180 degrees
       motors_turn_180();
-      motors_stop();
+      motors_backward();
+      delay(1000);
+      motors_forward();
      break;
 
     case 1:
@@ -534,11 +582,12 @@ bool return_block(bool block_number) {
       while(n_junctions != initial_junctions + junctions_to_move) {
         line_following(false);
       }
+      delay(500);
       motors_stop();
      break;
 
     case 2:
-      // stage 2 = turn left/right depending on block type
+      // s;tage 2 = turn left/right depending on block type
       if (block_type == "coarse") motors_turn_90("right");
       else if (block_type == "fine") motors_turn_90("left");
      break;
@@ -578,11 +627,10 @@ bool return_block(bool block_number) {
       }
      break;
   }
-  Serial.println(("return stage %d complete", stage));
-  stage += 1;
+  return_stage += 1;
 
   // return true if completed
-  return (stage == 8);
+  return (return_stage == 8);
 }
 
 void find_final_block() {
@@ -644,6 +692,11 @@ void main_routine() {
         line_following(false);
         //block_distance = get_distance_sensor_readings();
       } while (n_junctions < initial_junctions + 2);
+
+      for (int i = 0; i < 50; i++) {
+        line_following(false);
+        delay(15);
+      }
       motors_stop();
      break;
 
@@ -655,7 +708,11 @@ void main_routine() {
 
     case 3:
       // stage 3 = return block to correct box
-      while (!return_block(0)) {};
+      return_block_complete = return_block(0);
+      while (return_block_complete == false) {
+        return_block_complete = return_block(0);
+        delay(5);  
+      };
      break;
 
     case 4:
@@ -730,7 +787,7 @@ void main_routine() {
 }
 
 void loop() {
-
+  
   if (mode == "auto") {
     line_following(false);
   } else if (mode == "main") {
