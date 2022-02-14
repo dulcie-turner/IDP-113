@@ -66,7 +66,7 @@ bool block_infront = 0;
 Servo clawservo; 
 int servo_input = A0;
 int pos_max = 140;
-int pos_min = 30;
+int pos_min = 70;
 int pos = pos_min;
 
 String mode = "manual";
@@ -152,7 +152,7 @@ void motors_turn_90(String direction) {
     Motor2->run(BACKWARD);
   }
 
-  delay(1800);
+  delay(2000);
   motors_stop();
   motors_change_speed();
 }
@@ -164,7 +164,7 @@ void motors_turn_180() {
    Motor1->run(FORWARD);
    Motor2->run(BACKWARD);
 
-  delay(3200);
+  delay(3400);
   motors_stop();
 
   turning_sensors = false;
@@ -353,21 +353,17 @@ void printWifiStatus() {
 void setup() {
   
   Serial.begin(9600);           // set up Serial library at 9600 bps
-Serial.println("HELLO???");
   AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
 
   for (int i = 0; i < n_line_sensors; i++) {
     pinMode(line_pins[i], INPUT);
   }
-Serial.println("HELLO???");
   // ultrasonic pins
   pinMode(trigPin, OUTPUT); 
   pinMode(echoPin, INPUT); 
-Serial.println("HELLO???");
   clawservo.attach(10);  
   pinMode(servo_input, INPUT);
-Serial.println("HELLO???");
   // ----- CONNECTING TO WIFI ------
 
   // check for the WiFi module:
@@ -567,7 +563,7 @@ bool return_block(bool block_number) {
       // stage 0 = turn 180 degrees
       motors_turn_180();
       motors_backward();
-      delay(1000);
+      delay(500);
       motors_forward();
      break;
 
@@ -575,14 +571,14 @@ bool return_block(bool block_number) {
       // stage 1 = follow line up until red/blue junction
       
       int junctions_to_move;
-      if (block_number == 0) junctions_to_move = 1;
-      if (block_number == 1 || block_number == 2) junctions_to_move = 2;
+      if (block_number == 0 || block_number == 1) junctions_to_move = 1;
+      if (block_number == 2) junctions_to_move = 2;
 
       initial_junctions = n_junctions;
       while(n_junctions != initial_junctions + junctions_to_move) {
         line_following(false);
       }
-      delay(500);
+      delay(1000);
       motors_stop();
      break;
 
@@ -600,37 +596,52 @@ bool return_block(bool block_number) {
      case 4:
        // stage 4 = drop block
        drop_block();
+       motors_backward();
+       delay(1000);
+       motors_stop();
       break;
 
      case 5:
+        // stage 5 = turn to face forward
+        motors_forward();
+        if (block_number == 2) {
+          if (block_type == "coarse") motors_turn_90("left");
+          else if (block_type == "fine") motors_turn_90("right");
+        } else {
+          if (block_type == "coarse") motors_turn_90("right");
+          else if (block_type == "fine") motors_turn_90("left");        
+        }
        // stage 5 = turn around
-       motors_turn_180();
+       //motors_turn_180();
       break;
-
+      /*
      case 6:
         // stage 6 = get to central junction
-        initial_junctions = n_junctions;
+        //motors_forward();
+        //delay(500);
+        /*initial_junctions = n_junctions;
         while(n_junctions != initial_junctions + 2) {
           line_following(false);
         }
-        motors_stop();   
+        delay(500);
+        //motors_stop();   
         break;
 
     case 7:
       // stage 7 = turn to face forward
-      if (block_number != 2) {
+      if (block_number == 2) {
         if (block_type == "coarse") motors_turn_90("left");
         else if (block_type == "fine") motors_turn_90("right");
       } else {
         if (block_type == "coarse") motors_turn_90("right");
         else if (block_type == "fine") motors_turn_90("left");        
       }
-     break;
+     break;*/
   }
   return_stage += 1;
 
   // return true if completed
-  return (return_stage == 8);
+  return (return_stage == 6);
 }
 
 void find_final_block() {
@@ -657,14 +668,17 @@ void undo_find_final_block() {
 
 void goto_centre_of_box() {
   // drive to edge of block then reverse a bit
-  initial_junctions = n_junctions;
+  motors_forward();
+  delay(1000);
+  motors_stop();
+  /*initial_junctions = n_junctions;
   while(n_junctions <= initial_junctions + 1) {
     line_following(false);
   }
 
   motors_backward();
   delay(15);
-  motors_stop();
+  motors_stop();*/
 }
 
   
@@ -693,7 +707,7 @@ void main_routine() {
         //block_distance = get_distance_sensor_readings();
       } while (n_junctions < initial_junctions + 2);
 
-      for (int i = 0; i < 50; i++) {
+      for (int i = 0; i < 20; i++) {
         line_following(false);
         delay(15);
       }
@@ -717,10 +731,12 @@ void main_routine() {
 
     case 4:
       // stage 4 = follow line until block detected
+      motors_forward();
       do {
         line_following(false);
         block_distance = get_distance_sensor_readings();
       } while (!block_detection());
+      delay(500);
       motors_stop();
      break;
 
@@ -738,11 +754,11 @@ void main_routine() {
 
     case 7:
       // stage 7 = line follow until final junction (at furthest box)
+      motors_forward();
       initial_junctions = n_junctions;
       while(n_junctions != initial_junctions + 2) {
-        line_following(true);
+        line_following(false);
       }
-      motors_stop();
      break;
 
     case 8:

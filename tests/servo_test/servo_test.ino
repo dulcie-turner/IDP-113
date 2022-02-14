@@ -14,12 +14,12 @@ Servo myservo;  // create servo object to control a servo
 
 //int pos_max = 150;
 int pos_max = 135;
-int pos_min = 30;
+int pos_min = 70;
 
 int pos = pos_min;    // variable to store the servo position
 int pos_increment = 1;
 
-int servo_input = A5;
+int servo_input = A0;
 
 void setup() {
   myservo.attach(10);  // attaches the servo on pin 9 to the servo object
