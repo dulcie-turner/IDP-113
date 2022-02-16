@@ -25,6 +25,7 @@ How to update code:
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include <Servo.h>
+#include <Arduino.h>
 
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -52,6 +53,9 @@ bool off_line = false;
 bool turning_sensors = false;
 int sweep_distance = 0;
 
+int amberLED = 5;
+int greenLED = 4;
+int redLED = 13;
 
 // ultrasonic definitions
 const int trigPin = 3;
@@ -65,8 +69,8 @@ bool block_infront = 0;
 // servo setup
 Servo clawservo; 
 int servo_input = A0;
-int pos_max = 140;
-int pos_min = 70;
+int pos_max = 135;
+int pos_min = 50;
 int pos = pos_min;
 
 String mode = "manual";
@@ -91,6 +95,9 @@ int stage = 0;
 int return_stage = 0;
 String block_type;
 
+bool amberLEDval = false;
+bool toFlash = false;
+
 void motors_change_speed() {
   Motor1->setSpeed(left_speed);
   Motor2->setSpeed(right_speed);  
@@ -100,6 +107,8 @@ void motors_forward() {
   // set motors to move forward continuously
   Motor1->run(FORWARD);
   Motor2->run(FORWARD);
+
+  toFlash = true;
 }
 
 
@@ -108,36 +117,48 @@ void motors_stop() {
   Serial.println("stopping motors");
   Motor1->run(RELEASE);
   Motor2->run(RELEASE);
+
+  toFlash = false;
 }
 
 void motors_backward() {
   // set motors to move backward continuously
   Motor1->run(BACKWARD);
   Motor2->run(BACKWARD);
+
+  toFlash = true;
 }
 
 void motors_left_fast() {
   // set motors to turn left quickly
   Motor1->run(BACKWARD);
   Motor2->run(FORWARD);
+
+  toFlash = true;
 }
 
 void motors_left_slow() {
   // set motors to turn left slowly
   Motor1->run(RELEASE);
   Motor2->run(FORWARD);
+
+  toFlash = true;
 }
 
 void motors_right_fast() {
   // set motors to turn right quickly
   Motor1->run(FORWARD);
   Motor2->run(BACKWARD);
+
+  toFlash = true;
 }
 
 void motors_right_slow() {
   // set motors to turn right slowly
   Motor1->run(FORWARD);
   Motor2->run(RELEASE);
+
+  toFlash = true;
 }
 
 void motors_turn_90(String direction) {
@@ -152,9 +173,11 @@ void motors_turn_90(String direction) {
     Motor2->run(BACKWARD);
   }
 
-  delay(2000);
+  delay(1750);
   motors_stop();
   motors_change_speed();
+
+  toFlash = true;
 }
 
 void motors_turn_180() {
@@ -203,6 +226,8 @@ void motors_turn_180() {
   motors_stop();
   
   motors_change_speed();
+
+  toFlash = true;
 }
 
 
@@ -349,6 +374,17 @@ void printWifiStatus() {
   Serial.println(ip);
 }
 
+ISR(TCB0_INT_vect)
+{
+  // flash the amber LED
+
+  if (toFlash) {
+    digitalWrite(amberLED, amberLEDval);
+    amberLEDval = !amberLEDval;
+  }
+
+  TCB0.INTFLAGS = TCB_CAPT_bm;
+}
 
 void setup() {
   
@@ -364,6 +400,18 @@ void setup() {
   pinMode(echoPin, INPUT); 
   clawservo.attach(10);  
   pinMode(servo_input, INPUT);
+
+  // ------- handling LEDs -----
+  
+  pinMode(amberLED, OUTPUT);
+  pinMode(redLED, OUTPUT);
+  pinMode(greenLED, OUTPUT);
+
+  TCB0.CTRLB = TCB_CNTMODE_INT_gc; // Use timer compare mode
+  TCB0.CCMP = 125000; // Value to compare with. This is 1/10th of the tick rate, so 10 Hz
+  TCB0.INTCTRL = TCB_CAPT_bm; // Enable the interrupt
+  TCB0.CTRLA = TCB_CLKSEL_CLKTCA_gc | TCB_ENABLE_bm; // Use Timer A as clock, enable timer
+
   // ----- CONNECTING TO WIFI ------
 
   // check for the WiFi module:
@@ -413,6 +461,7 @@ void get_line_sensor_readings(bool printResults) {
 }
 
 int get_distance_sensor_readings() {
+  noInterrupts();
   // Clears the trigPin
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -426,13 +475,14 @@ int get_distance_sensor_readings() {
   if (ultrasonic_duration != 0){
     ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
   }
+  interrupts();
   return ultrasonic_distance;
 }
 
 bool block_detection() {
   // detects a block after 5 consecutive block readings
   // returns 1 if detected
-  if (block_distance < 12){
+  if (block_distance < 20){
     block_distance_readings += 1;
   }
   else{
@@ -550,8 +600,12 @@ String identify_block() {
     sum_servo_input_readings += analogRead(servo_input);
   }
   avg_servo_input_reading = sum_servo_input_readings/100;           // Finds average
-  if (avg_servo_input_reading > 650) {return "fine";}               // Determines if fine or coarse
-  else {return "coarse";}
+  if (avg_servo_input_reading > 650) {
+    digitalWrite(greenLED, 1);
+    return "fine";}               // Determines if fine or coarse
+  else {
+    digitalWrite(redLED, 1);
+    return "coarse";}
 }
 
 bool return_block_complete;
@@ -597,8 +651,11 @@ bool return_block(bool block_number) {
        // stage 4 = drop block
        drop_block();
        motors_backward();
-       delay(1000);
+       delay(900);
        motors_stop();
+
+       digitalWrite(redLED, 0);
+       digitalWrite(greenLED, 0);
       break;
 
      case 5:
@@ -654,6 +711,7 @@ void find_final_block() {
     line_following(false);
     block_distance = get_distance_sensor_readings();
   }
+  delay(500);
   motors_stop();
 }
 
@@ -669,7 +727,7 @@ void undo_find_final_block() {
 void goto_centre_of_box() {
   // drive to edge of block then reverse a bit
   motors_forward();
-  delay(1000);
+  delay(900);
   motors_stop();
   /*initial_junctions = n_junctions;
   while(n_junctions <= initial_junctions + 1) {
@@ -732,10 +790,15 @@ void main_routine() {
     case 4:
       // stage 4 = follow line until block detected
       motors_forward();
+      // delay added to avoid detecting the ramp as a block
+      int delay_sensor = 0;
+      bool continue_loop = true;
       do {
         line_following(false);
         block_distance = get_distance_sensor_readings();
-      } while (!block_detection());
+        delay_sensor += 1;
+        if (block_detection() && delay_sensor > 50) continue_loop = false;
+      } while (continue_loop);
       delay(500);
       motors_stop();
      break;
@@ -749,7 +812,11 @@ void main_routine() {
     case 6:
       // stage 6 = return block to correct box
       return_stage = 0;
-      while (!return_block(1)) {};
+      return_block_complete = return_block(0);
+      while (return_block_complete == false) {
+        return_block_complete = return_block(0);
+        delay(5);  
+      };
      break;
 
     case 7:
@@ -798,7 +865,7 @@ void main_routine() {
      break;
   }
 
-  Serial.println(("return stage %d complete", stage));
+  Serial.println(("stage %d complete", stage));
   stage += 1;
 }
 
