@@ -25,7 +25,6 @@ How to update code:
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
 #include <Servo.h>
-#include <Arduino.h>
 
 // Create the motor shield object with the default I2C address
 Adafruit_MotorShield AFMS = Adafruit_MotorShield();
@@ -51,11 +50,15 @@ int initial_junctions;
 int n_error_readings = 0;
 bool off_line = false;
 bool turning_sensors = false;
-int sweep_distance = 0;
+int sweep_duration = 0;
 
+// setup LEDs
 int amberLED = 5;
 int greenLED = 4;
 int redLED = 13;
+
+bool amberLEDval = false;
+bool toFlash = false;
 
 // ultrasonic definitions
 const int trigPin = 3;
@@ -69,34 +72,32 @@ bool block_infront = 0;
 // servo setup
 Servo clawservo; 
 int servo_input = A0;
-int pos_max = 135;
-int pos_min = 50;
+int pos_max = 150;
+int pos_min = 40;
 int pos = pos_min;
-
-String mode = "manual";
 
 // sort out wifi
 #include "arduino_secrets.h" 
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int keyIndex = 0;                 // your network key Index number (needed only for WEP)
-
 int status = WL_IDLE_STATUS;
 WiFiServer server(80);
 
 // motor speed control
 int left_speed = 255;
 int right_speed = 255;
-
 int previous_left_speed = 0;
 int previous_right_speed = 0;
 
+// variables for controlling program flow
+String mode = "main";
 int stage = 0;
 int return_stage = 0;
+
 String block_type;
 
-bool amberLEDval = false;
-bool toFlash = false;
+// ----------- MOTOR CONTROL FUNCTIONS --------------
 
 void motors_change_speed() {
   Motor1->setSpeed(left_speed);
@@ -108,13 +109,13 @@ void motors_forward() {
   Motor1->run(FORWARD);
   Motor2->run(FORWARD);
 
+  // only flash amber LED when moving
   toFlash = true;
 }
 
 
 void motors_stop() {
   // stop motors
-  Serial.println("stopping motors");
   Motor1->run(RELEASE);
   Motor2->run(RELEASE);
 
@@ -173,7 +174,7 @@ void motors_turn_90(String direction) {
     Motor2->run(BACKWARD);
   }
 
-  delay(1750);
+  delay(1700);
   motors_stop();
   motors_change_speed();
 
@@ -181,53 +182,68 @@ void motors_turn_90(String direction) {
 }
 
 void motors_turn_180() {
+  toFlash = true;
+  
   // turn 180 degrees
    Motor1->setSpeed(200);
    Motor2->setSpeed(200); 
    Motor1->run(FORWARD);
    Motor2->run(BACKWARD);
 
-  delay(3400);
+  delay(3480);
   motors_stop();
 
+  // sweeps a progressively increasing distance in an attempt to find the line
   turning_sensors = false;
-  sweep_distance = 0;
-  
+  sweep_duration = 0;
+
+  unsigned long startTime = millis();
+
+  // while line not found
   while (turning_sensors == false) {
-   sweep_distance += 50;
+   sweep_duration += 50;
    motors_right_fast();
    motors_change_speed();
-   delay(sweep_distance);
-   get_line_sensor_readings(false);
-   n_sensors_high = 0;
-   for (int i = 0; i < n_line_sensors; i++)  {
-     n_sensors_high += line_reading[i];
-   }
-   if (n_sensors_high != 0) {
-    turning_sensors = true;
-   }
-   else {
-    sweep_distance += 50;
-    motors_left_fast();
-    motors_change_speed();
-    delay(sweep_distance);
-    get_line_sensor_readings(false);
-    n_sensors_high = 0;
-    for (int i = 0; i < n_line_sensors; i++)  {
-      n_sensors_high += line_reading[i];
-   }
-      if (n_sensors_high != 0) {
+
+   // for specified duration, turn right whilst checking for line
+   while (millis() < startTime + sweep_duration) {
+     delay(5);
+     
+     get_line_sensor_readings(false);
+     n_sensors_high = 0;
+     for (int i = 0; i < n_line_sensors; i++)  {
+       n_sensors_high += line_reading[i];
+     }
+     if (n_sensors_high != 0) {
       turning_sensors = true;
+     }
+
    }
-   }
+
+   sweep_duration += 50;
+   startTime = millis();
+
+   motors_left_fast();
+   motors_change_speed();
+
+   // for specified duration, turn left whilst checking for line
+   while (millis() < startTime + sweep_duration) {
+      delay(5);
+ 
+      get_line_sensor_readings(false);
+      n_sensors_high = 0;
+      for (int i = 0; i < n_line_sensors; i++)  {
+        n_sensors_high += line_reading[i];
+     }
+        if (n_sensors_high != 0) {
+        turning_sensors = true;
+     }
+     }
   }
   
   delay(100);
   motors_stop();
-  
   motors_change_speed();
-
-  toFlash = true;
 }
 
 
@@ -376,7 +392,7 @@ void printWifiStatus() {
 
 ISR(TCB0_INT_vect)
 {
-  // flash the amber LED
+  // ISR for flashing the amber LED
 
   if (toFlash) {
     digitalWrite(amberLED, amberLEDval);
@@ -461,7 +477,7 @@ void get_line_sensor_readings(bool printResults) {
 }
 
 int get_distance_sensor_readings() {
-  noInterrupts();
+  //noInterrupts();
   // Clears the trigPin
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -475,7 +491,7 @@ int get_distance_sensor_readings() {
   if (ultrasonic_duration != 0){
     ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
   }
-  interrupts();
+  //interrupts();
   return ultrasonic_distance;
 }
 
@@ -488,7 +504,7 @@ bool block_detection() {
   else{
     block_distance_readings = 0;
   }
-  return (block_distance_readings > 5);
+  return (block_distance_readings > 3);
 }
 
 void decide_line_follow_speed(bool region_without_line) {
@@ -574,26 +590,30 @@ void decide_line_follow_speed(bool region_without_line) {
 void line_following(bool region_without_line){
   get_line_sensor_readings(true);
   decide_line_follow_speed(region_without_line);
-    motors_change_speed();
-
- }
+  motors_change_speed();
+}
 
 
 void pick_up_block() {
+  //noInterrupts();
   for (pos = pos_max; pos >= pos_min; pos -= 1) {
      clawservo.write(pos);
      delay(15);
   }
+  //interrupts();
 }
 
 void drop_block() {
+  //noInterrupts();
   for (pos = pos_min; pos <= pos_max; pos += 1) {
      clawservo.write(pos);
      delay(15);
   }
+  //interrupts();
 }
 
 String identify_block() {
+  //noInterrupts();
   float sum_servo_input_readings = 0;
   float avg_servo_input_reading = 0;
   for (int i = 0; i < 100; i++) {                                   // Takes multiple readings
@@ -606,6 +626,7 @@ String identify_block() {
   else {
     digitalWrite(redLED, 1);
     return "coarse";}
+  //interrupts();
 }
 
 bool return_block_complete;
@@ -613,15 +634,15 @@ bool return_block_complete;
 bool return_block(bool block_number) {
   Serial.println(String(return_stage) + " return stage");
   switch (return_stage) {
-    case 0:
+    case 0: {
       // stage 0 = turn 180 degrees
       motors_turn_180();
       motors_backward();
       delay(500);
       motors_forward();
-     break;
+    } break;
 
-    case 1:
+    case 1: {
       // stage 1 = follow line up until red/blue junction
       
       int junctions_to_move;
@@ -634,33 +655,32 @@ bool return_block(bool block_number) {
       }
       delay(1000);
       motors_stop();
-     break;
+    } break;
 
-    case 2:
-      // s;tage 2 = turn left/right depending on block type
+    case 2: {
+      // stage 2 = turn left/right depending on block type
       if (block_type == "coarse") motors_turn_90("right");
       else if (block_type == "fine") motors_turn_90("left");
-     break;
+    } break;
 
-     case 3:
+     case 3: {
       // stage 3 = move to centre of box
       goto_centre_of_box();
-     break;
+     } break;
 
-     case 4:
+     case 4: {
        // stage 4 = drop block
        drop_block();
        motors_backward();
-       delay(900);
+       delay(850);
        motors_stop();
 
        digitalWrite(redLED, 0);
        digitalWrite(greenLED, 0);
-      break;
+     } break;
 
-     case 5:
+     case 5: {
         // stage 5 = turn to face forward
-        motors_forward();
         if (block_number == 2) {
           if (block_type == "coarse") motors_turn_90("left");
           else if (block_type == "fine") motors_turn_90("right");
@@ -668,32 +688,7 @@ bool return_block(bool block_number) {
           if (block_type == "coarse") motors_turn_90("right");
           else if (block_type == "fine") motors_turn_90("left");        
         }
-       // stage 5 = turn around
-       //motors_turn_180();
-      break;
-      /*
-     case 6:
-        // stage 6 = get to central junction
-        //motors_forward();
-        //delay(500);
-        /*initial_junctions = n_junctions;
-        while(n_junctions != initial_junctions + 2) {
-          line_following(false);
-        }
-        delay(500);
-        //motors_stop();   
-        break;
-
-    case 7:
-      // stage 7 = turn to face forward
-      if (block_number == 2) {
-        if (block_type == "coarse") motors_turn_90("left");
-        else if (block_type == "fine") motors_turn_90("right");
-      } else {
-        if (block_type == "coarse") motors_turn_90("right");
-        else if (block_type == "fine") motors_turn_90("left");        
-      }
-     break;*/
+     } break;
   }
   return_stage += 1;
 
@@ -707,21 +702,20 @@ void find_final_block() {
   // robot can hopefully still return to start)
   
   initial_junctions = n_junctions;
-  while(n_junctions <= initial_junctions + 1 && !block_detection()) {
+  motors_forward();
+  while(n_junctions <= initial_junctions + 2 && !block_detection()) {
     line_following(false);
     block_distance = get_distance_sensor_readings();
   }
-  delay(500);
+  delay(800);
   motors_stop();
 }
 
 void undo_find_final_block() {
   // move robot to entrance of final box
   motors_turn_180();
-  initial_junctions = n_junctions;
-  while(n_junctions <= initial_junctions + 1) {
-    line_following(false);
-  }
+  motors_forward();
+  delay(1000);
 }
 
 void goto_centre_of_box() {
@@ -743,7 +737,7 @@ void goto_centre_of_box() {
 void main_routine() {
   Serial.println(String(stage) + String("Stage"));
   switch (stage) {
-    case 0:
+    case 0: {
       // stage 0 = leave start box
       left_speed = 200;
       right_speed = 200;
@@ -755,9 +749,9 @@ void main_routine() {
       while(n_junctions != 1) {
         line_following(true);
       }*/
-     break;
+    } break;
 
-    case 1:
+    case 1: {
       // stage 1 = follow line until block detected
       initial_junctions = n_junctions;
       do {
@@ -765,29 +759,29 @@ void main_routine() {
         //block_distance = get_distance_sensor_readings();
       } while (n_junctions < initial_junctions + 2);
 
-      for (int i = 0; i < 20; i++) {
+      for (int i = 0; i < 18; i++) {
         line_following(false);
         delay(15);
       }
       motors_stop();
-     break;
+    } break;
 
-    case 2:
+    case 2: {
       // stage 2 = pick up & identify block
       pick_up_block();
       block_type = identify_block();
-     break;
+    } break;
 
-    case 3:
+    case 3: {
       // stage 3 = return block to correct box
       return_block_complete = return_block(0);
       while (return_block_complete == false) {
         return_block_complete = return_block(0);
         delay(5);  
       };
-     break;
+    } break;
 
-    case 4:
+    case 4: {
       // stage 4 = follow line until block detected
       motors_forward();
       // delay added to avoid detecting the ramp as a block
@@ -797,72 +791,75 @@ void main_routine() {
         line_following(false);
         block_distance = get_distance_sensor_readings();
         delay_sensor += 1;
-        if (block_detection() && delay_sensor > 50) continue_loop = false;
+        if (block_detection() && delay_sensor > 35) continue_loop = false;
       } while (continue_loop);
-      delay(500);
+      delay(400);
       motors_stop();
-     break;
+    } break;
 
-    case 5:
+    case 5: {
       // stage 5 = pick up & identify block
       pick_up_block();
       block_type = identify_block();
-     break;
-
-    case 6:
+    } break;
+    case 6: {
       // stage 6 = return block to correct box
       return_stage = 0;
-      return_block_complete = return_block(0);
+      return_block_complete = return_block(1);
       while (return_block_complete == false) {
-        return_block_complete = return_block(0);
+        return_block_complete = return_block(1);
         delay(5);  
       };
-     break;
+    } break;
 
-    case 7:
+    case 7: {
       // stage 7 = line follow until final junction (at furthest box)
       motors_forward();
       initial_junctions = n_junctions;
       while(n_junctions != initial_junctions + 2) {
         line_following(false);
       }
-     break;
+    } break;
 
-    case 8:
+    case 8: {
       // stage 8 = search for final block
       find_final_block();
-     break;  
+    } break;  
 
-    case 9:
+    case 9: {
       // stage 9 = pick up & identify block
       pick_up_block();
       block_type = identify_block();
-     break;
+    } break;
 
-    case 10:
+    case 10: {
       // stage 10 = return to entrance of furthest box
       undo_find_final_block();
-     break;
+    } break;
 
-    case 11:
+    case 11: {
       // stage 11 = return block to correct box
       return_stage = 0;
-      while (!return_block(2)) {};
-     break;
+      return_block_complete = return_block(2);
+      while (return_block_complete == false) {
+        return_block_complete = return_block(2);
+        delay(5);  
+      };
+    } break;
 
-    case 12:
+    case 12: {
       // stage 12 = return to entrance of start/stop area
       initial_junctions = n_junctions;
       while(n_junctions != initial_junctions + 1) {
         line_following(true);
       }
       motors_stop();
-     break;
+    } break;
 
-    case 13:
+    case 13: {
       // stage 13 = go to centre of start/stop area
       goto_centre_of_box();
-     break;
+    } break;
   }
 
   Serial.println(("stage %d complete", stage));
