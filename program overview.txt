@@ -63,36 +63,28 @@ After x seconds or junction met -> DONE
 
 -------------- 	RETURN BLOCK FUNCTION --------------
 
-stage = 1
+stage = 0
 	Rotate with block
 Line detected again -> stage 2
 
-stage = 2
+stage = 1
 	Follow line
-Junction detected -> stage 3
+Correct junction detected -> stage 3
+
+stage = 2
+	Turn left/right depending on block type
+Turning completed -> stage 4
 
 stage = 3
-	Turn left/right depending on block type
-Line detected again -> stage 4
+	Drive straight into centre of box
+After x seconds -> stage 5
 
 stage = 4
-	Drive straight
-After x seconds (or line detected) -> stage 5
-
-stage = 5
-	Let go of block
+	Let go of block & exit box
 Once done -> stage 6
 
-stage = 6
-	Turn 180 degrees and drive straight until junction at edge of box
-Junction detected -> stage 7
-
-stage = 7
-	Follow line until junction
-Junction detected -> stage 8
-
-stage = 8
+stage = 5
 	Turn left/right based on previous turning direction
-Line detected again -> DONE
+Once done -> DONE
 
 -------------------------------------------------------

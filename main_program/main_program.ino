@@ -36,7 +36,7 @@ Adafruit_DCMotor *Motor1 = AFMS.getMotor(1);
 Adafruit_DCMotor *Motor2 = AFMS.getMotor(2);
 
 
-// setup line sensors
+// setup line sensors & line following variables
 int line_pins[] = {8, 12, 7, 11};
 int n_line_sensors = 4;
 bool line_reading[4] = {0,0,0,0};
@@ -87,13 +87,13 @@ WiFiServer server(80);
 // motor speed control
 int left_speed = 255;
 int right_speed = 255;
-int previous_left_speed = 0;
-int previous_right_speed = 0;
 
 // variables for controlling program flow
-String mode = "main";
 int stage = 0;
 int return_stage = 0;
+
+// modes: manual (manual control of robot); auto (line following); main (code to complete the challenge)
+String mode = "main";
 
 String block_type;
 
@@ -112,7 +112,6 @@ void motors_forward() {
   // only flash amber LED when moving
   toFlash = true;
 }
-
 
 void motors_stop() {
   // stop motors
@@ -217,7 +216,6 @@ void motors_turn_180() {
      if (n_sensors_high != 0) {
       turning_sensors = true;
      }
-
    }
 
    sweep_duration += 50;
@@ -285,7 +283,7 @@ void handle_client(WiFiClient client) {
           client.print("Click <a href=\"/manual\">here</a> to set the mode to MANUAL<br>");
           client.print("Click <a href=\"/L90\">here</a> to set the mode to LEFT 90<br>");
           client.print("Click <a href=\"/R90\">here</a> to set the mode to RIGHT 90<br>");
-          client.print("Click <a href=\"/T180\">here</a> to set the mode to Turn 180<br>");
+          client.print("Click <a href=\"/T180\">here</a> to set the mode to TURN 180<br>");
           
 
           // The HTTP response ends with another blank line:
@@ -324,21 +322,17 @@ void handle_client(WiFiClient client) {
       if (currentLine.endsWith("GET /fast")) {
         left_speed = 250;
         right_speed = 250;
-    
-    motors_change_speed();
-
+        motors_change_speed();
       }
       if (currentLine.endsWith("GET /medium")) {
         left_speed = 160;
         right_speed = 160;
-    motors_change_speed();
-
+        motors_change_speed();
       }
       if (currentLine.endsWith("GET /slow")) {
         left_speed = 60;
         right_speed = 60;
-    motors_change_speed();
-
+        motors_change_speed();
       }
       if (currentLine.endsWith("GET /line")) {
         mode = "auto";
@@ -393,12 +387,10 @@ void printWifiStatus() {
 ISR(TCB0_INT_vect)
 {
   // ISR for flashing the amber LED
-
   if (toFlash) {
     digitalWrite(amberLED, amberLEDval);
     amberLEDval = !amberLEDval;
   }
-
   TCB0.INTFLAGS = TCB_CAPT_bm;
 }
 
@@ -408,10 +400,10 @@ void setup() {
   AFMS.begin();  // create with the default frequency 1.6KHz
   //AFMS.begin(1000);  // OR with a different frequency, say 1KHz
 
+  // setup pins
   for (int i = 0; i < n_line_sensors; i++) {
     pinMode(line_pins[i], INPUT);
   }
-  // ultrasonic pins
   pinMode(trigPin, OUTPUT); 
   pinMode(echoPin, INPUT); 
   clawservo.attach(10);  
@@ -458,6 +450,7 @@ void setup() {
 
   // ----------------------------------
 
+  // reset robot
   drop_block();
   motors_stop();
 }
@@ -477,7 +470,6 @@ void get_line_sensor_readings(bool printResults) {
 }
 
 int get_distance_sensor_readings() {
-  //noInterrupts();
   // Clears the trigPin
   digitalWrite(trigPin, LOW);
   delayMicroseconds(2);
@@ -491,7 +483,6 @@ int get_distance_sensor_readings() {
   if (ultrasonic_duration != 0){
     ultrasonic_distance = ultrasonic_duration * 0.0343 / 2;
   }
-  //interrupts();
   return ultrasonic_distance;
 }
 
@@ -558,7 +549,7 @@ void decide_line_follow_speed(bool region_without_line) {
   }
 
   if (region_without_line == false) {
-    // if enough error readings detected, robot has left line
+    // if enough error readings detected, robot has left line & needs to reverse until line found
     // only check for this if robot is both line following and junction detecting (rather than only searching for a junction)
     if (n_sensors_high == 0) {
       n_error_readings += 1;
@@ -572,6 +563,8 @@ void decide_line_follow_speed(bool region_without_line) {
       off_line = false;
     }
     if (n_error_readings == 90){
+      // (this number is high because the robot is prone to losing the line when moving up the ramp - a better solution would be to disable
+      //  reversing while moving up the ramp, as detected by the onboard accelerometer)
       off_line = true;
       n_error_readings = 0;
     
@@ -595,28 +588,23 @@ void line_following(bool region_without_line){
 
 
 void pick_up_block() {
-  //noInterrupts();
   for (pos = pos_max; pos >= pos_min; pos -= 1) {
      clawservo.write(pos);
      delay(15);
   }
-  //interrupts();
 }
 
 void drop_block() {
-  //noInterrupts();
   for (pos = pos_min; pos <= pos_max; pos += 1) {
      clawservo.write(pos);
      delay(15);
   }
-  //interrupts();
 }
 
 String identify_block() {
-  //noInterrupts();
   float sum_servo_input_readings = 0;
   float avg_servo_input_reading = 0;
-  for (int i = 0; i < 100; i++) {                                   // Takes multiple readings
+  for (int i = 0; i < 100; i++) {                                   // Takes multiple readings of servo voltage
     sum_servo_input_readings += analogRead(servo_input);
   }
   avg_servo_input_reading = sum_servo_input_readings/100;           // Finds average
@@ -626,7 +614,6 @@ String identify_block() {
   else {
     digitalWrite(redLED, 1);
     return "coarse";}
-  //interrupts();
 }
 
 bool return_block_complete;
@@ -719,18 +706,10 @@ void undo_find_final_block() {
 }
 
 void goto_centre_of_box() {
-  // drive to edge of block then reverse a bit
+  // drive to centre of box
   motors_forward();
   delay(900);
   motors_stop();
-  /*initial_junctions = n_junctions;
-  while(n_junctions <= initial_junctions + 1) {
-    line_following(false);
-  }
-
-  motors_backward();
-  delay(15);
-  motors_stop();*/
 }
 
   
@@ -744,21 +723,17 @@ void main_routine() {
       motors_change_speed();
       motors_forward();
       delay(1500);
-      
-      /*Serial.println(n_junctions);
-      while(n_junctions != 1) {
-        line_following(true);
-      }*/
     } break;
 
     case 1: {
-      // stage 1 = follow line until block detected
+      // stage 1 = follow line until junction of 1st block reached
+      // (junction approach used as the line sensing is more reliable than distance sensing)
       initial_junctions = n_junctions;
       do {
         line_following(false);
-        //block_distance = get_distance_sensor_readings();
       } while (n_junctions < initial_junctions + 2);
 
+      // continue along line for short time, to ensure block is secure
       for (int i = 0; i < 18; i++) {
         line_following(false);
         delay(15);
@@ -802,6 +777,7 @@ void main_routine() {
       pick_up_block();
       block_type = identify_block();
     } break;
+    
     case 6: {
       // stage 6 = return block to correct box
       return_stage = 0;
@@ -873,12 +849,6 @@ void loop() {
   } else if (mode == "main") {
     main_routine();
   }
-
-  /*block_distance = get_distance_sensor_readings();
- 
-  if (block_detection()){
-    Serial.println("Block");
-  }*/
 
     // ------------ WIFI CODE -----------
   WiFiClient client = server.available();   // listen for incoming clients
